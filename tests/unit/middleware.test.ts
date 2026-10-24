@@ -22,6 +22,11 @@ describe("middleware", () => {
     "/api/sync/runs",
     "/api/sync/schedule",
     "/api/accounts/abc",
+    "/api/accounts/overview",
+    "/api/transactions",
+    "/api/transactions/1",
+    "/api/categories",
+    "/api/tags",
   ])("returns 401 JSON for %s without a session", async (path) => {
     const res = await middleware(req(path));
     expect(res.status).toBe(401);

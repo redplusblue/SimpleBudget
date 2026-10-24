@@ -4,8 +4,19 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { ACCOUNT_TYPES, accounts } from "@/db/schema";
 import { requireApiAuth } from "@/lib/auth";
+import { getEnv } from "@/lib/env";
+import { getAccountDetail } from "@/lib/finance/accounts-overview";
 
 export const dynamic = "force-dynamic";
+
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireApiAuth();
+  if (denied) return denied;
+  const { id } = await params;
+  const detail = getAccountDetail(getDb(), decodeURIComponent(id), Math.floor(Date.now() / 1000), getEnv().TZ);
+  if (!detail) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  return NextResponse.json(detail);
+}
 
 /** Only user-overlay columns can be edited; imported bank fields are read-only. */
 const patch = z
