@@ -1,4 +1,5 @@
 import { CommandMenu } from "./command-menu";
+import { SyncPill } from "./sync-pill";
 import { ThemeToggle } from "./theme-toggle";
 
 export function Topbar() {
@@ -7,6 +8,7 @@ export function Topbar() {
       <div className="flex h-14 items-center gap-2 px-4 md:px-6">
         <CommandMenu />
         <div className="ml-auto flex items-center gap-1">
+          <SyncPill />
           <ThemeToggle />
         </div>
       </div>
