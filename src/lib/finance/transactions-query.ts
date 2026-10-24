@@ -158,6 +158,8 @@ export interface QueryOptions {
   cursor?: string | null;
   limit?: number;
   timeZone: string;
+  /** Skip the (first page) COUNT query when the caller doesn't need it. */
+  includeTotal?: boolean;
 }
 
 /**
@@ -205,7 +207,7 @@ export function queryTransactions(db: DbLike, filters: TransactionFilters, opts:
     nextCursor:
       hasMore && last ? encodeCursor({ pending: last.pending ? 1 : 0, date: last.effectiveDate, id: last.id }) : null,
   };
-  if (!opts.cursor) {
+  if (!opts.cursor && opts.includeTotal !== false) {
     page.total =
       db
         .select({ n: sql<number>`count(*)` })
