@@ -1,14 +1,13 @@
-import { CreditCard } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { AccountsOverview } from "./accounts-overview";
 
 export const metadata = { title: "Accounts" };
 
-export default function Page() {
+export default function AccountsPage() {
   return (
     <>
-      <PageHeader title="Accounts" />
-      <EmptyState icon={CreditCard} title="Connected accounts will be listed here." />
+      <PageHeader title="Accounts" description="Balances across everything you've connected." />
+      <AccountsOverview />
     </>
   );
 }

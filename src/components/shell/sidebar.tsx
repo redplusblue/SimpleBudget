@@ -3,9 +3,10 @@
 import { PanelLeftClose, PanelLeftOpen, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { isActive, NAV_ITEMS } from "./nav";
+import { SidebarAccounts } from "./sidebar-accounts";
 
 const STORAGE_KEY = "sb:sidebar-collapsed";
 
@@ -45,21 +46,23 @@ export function Sidebar() {
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
-            <Link
-              key={href}
-              href={href}
-              title={collapsed ? label : undefined}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground",
-                active && "bg-surface-2 text-foreground",
-                collapsed && "justify-center px-0",
-              )}
-            >
-              <Icon className={cn("size-[18px] shrink-0", active && "text-primary")} />
-              {!collapsed && label}
-              {collapsed && <span className="sr-only">{label}</span>}
-            </Link>
+            <Fragment key={href}>
+              <Link
+                href={href}
+                title={collapsed ? label : undefined}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground",
+                  active && "bg-surface-2 text-foreground",
+                  collapsed && "justify-center px-0",
+                )}
+              >
+                <Icon className={cn("size-[18px] shrink-0", active && "text-primary")} />
+                {!collapsed && label}
+                {collapsed && <span className="sr-only">{label}</span>}
+              </Link>
+              {href === "/accounts" && !collapsed && <SidebarAccounts />}
+            </Fragment>
           );
         })}
       </nav>
