@@ -1,17 +1,13 @@
-import { LayoutDashboard } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
+import { Dashboard } from "@/components/dashboard/dashboard";
 import { PageHeader } from "@/components/page-header";
 
 export const metadata = { title: "Dashboard" };
 
-export default function Page() {
+export default function DashboardPage() {
   return (
     <>
       <PageHeader title="Dashboard" />
-      <EmptyState
-        icon={LayoutDashboard}
-        title="Your net worth and monthly overview will show up here once accounts are connected."
-      />
+      <Dashboard />
     </>
   );
 }

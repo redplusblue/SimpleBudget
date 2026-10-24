@@ -14,12 +14,18 @@ export function BalanceChart({
   loading,
   error,
   height = 200,
+  label = "Balance",
+  tickFormat = "MMM d",
 }: {
   points: BalancePoint[] | undefined;
   currency?: string;
   loading?: boolean;
   error?: boolean;
   height?: number;
+  /** Name shown in the tooltip, e.g. "Net worth". */
+  label?: string;
+  /** date-fns format for x-axis ticks. */
+  tickFormat?: string;
 }) {
   const gradientId = useId();
   if (loading) return <Skeleton style={{ height }} className="w-full rounded-xl" />;
@@ -59,7 +65,7 @@ export function BalanceChart({
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="date"
-            tickFormatter={(d: string) => format(parseISO(d), "MMM d")}
+            tickFormatter={(d: string) => format(parseISO(d), tickFormat)}
             tick={{ fill: "var(--text-faint)", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
@@ -83,7 +89,7 @@ export function BalanceChart({
             }}
             labelStyle={{ color: "var(--text-muted)" }}
             labelFormatter={(d) => format(parseISO(String(d)), "EEE, MMM d, yyyy")}
-            formatter={(v) => [formatCents(Number(v), { currency }), "Balance"]}
+            formatter={(v) => [formatCents(Number(v), { currency }), label]}
           />
           <Area
             type="monotone"
