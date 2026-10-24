@@ -84,11 +84,11 @@ export function Register({ accountId }: { accountId?: string }) {
     setSelectionMode(false);
   }, []);
 
-  const update = useUpdateTransaction();
+  const { mutate: updateTransaction } = useUpdateTransaction();
   const bulk = useBulkUpdate();
   const onCategoryChange = useCallback(
-    (id: number, categoryId: number | null) => update.mutate({ id, patch: { categoryId } }),
-    [update],
+    (id: number, categoryId: number | null) => updateTransaction({ id, patch: { categoryId } }),
+    [updateTransaction],
   );
   const applyBulk = (patch: BulkPatchInput["patch"]) =>
     bulk.mutate({ ids: [...selected], patch }, { onSuccess: clearSelection });
@@ -111,7 +111,7 @@ export function Register({ accountId }: { accountId?: string }) {
     count: items.length,
     estimateSize: (i) =>
       items[i].kind === "header" ? HEADER_HEIGHT : isMobile ? ROW_HEIGHT_MOBILE : ROW_HEIGHT_DESKTOP,
-    overscan: 10,
+    overscan: 6,
     scrollMargin,
     getItemKey: (i) => {
       const item = items[i];
@@ -227,6 +227,7 @@ export function Register({ accountId }: { accountId?: string }) {
                       categories={categories}
                       showAccount={!accountId}
                       showBalance={showBalance}
+                      mobile={isMobile}
                       selected={selected.has(item.row.id)}
                       selectionMode={selectionMode}
                       onOpen={setOpenId}

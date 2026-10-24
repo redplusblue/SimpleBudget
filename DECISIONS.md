@@ -36,3 +36,18 @@
 - **Scheduler:** node-cron in the server's `TZ`; choices Off / 3h / 6h (default) / 12h / daily, stored in `settings.sync_schedule`. Hourly is deliberately not offered because it would exceed the 20-request daily cap. If the server was down through a scheduled time, a catch-up sync runs ~30 s after boot.
 - **E2E:** a local HTTP mock of the Bridge (`tests/e2e/mock-simplefin.ts`) serves the fixtures with timestamps shifted to "now"; stored access URLs may be `http://` (only the *claim* step requires https).
 - **Fixtures:** `tests/fixtures/*.json` hold absolute timestamps anchored at 2026-10-24T12:00Z; unit tests pin `now` to that instant.
+
+## Phase 4
+
+- **Ordering & cursor:** the register lists pending items first, then newest posted. Pending rows have no posted date, so ordering, date filters and the cursor use an "effective date" (purchase date, else first-seen). The cursor is `(pending, effective date, id)`, i.e. the exact sort key, so paging has no gaps or duplicates. (The plan suggested `posted,id`, which can't order pending rows.)
+- **Filters:** `from`/`to` are inclusive local dates in the server's `TZ`; the amount range is on the *absolute* amount, in dollars in the URL; search is multi-term AND across description, bank payee, payee override, memo and notes, and a term like `42.18` also matches the amount.
+- **Running balance** = bank balance minus everything posted after the row. Shown only on a single-account view with no other filters, never for pending rows (banks don't include pending in the balance), and hidden on mobile where the row has no room for it.
+- **Account month stats** (money in / out / net) count posted, non-excluded transactions *including transfers*, since they describe movement in that account. Phase 5/7 spending totals use the expense/income definitions instead.
+- **Account groups:** Cash = checking/savings/cash; Credit; Investments; Loans; Other; closed accounts are grouped separately and collapsed. Hidden accounts are omitted from the overview and sidebar.
+- **Stale balance:** `balance_date` older than 3 days (or never reported).
+- **Virtualization:** window-scrolled list; one layout is rendered per row (mobile or desktop) and in-row category pickers start as lightweight buttons and become a Radix Select on first use. Without this, scrolling 10k rows cost >200 ms p95 frames; with it ~25 ms p95 / ~38 ms max (headless Chromium, 1440px, 10k rows, 25 DOM rows).
+- **Tags/categories CRUD** are only partly here: the API lists categories and tags and can create tags (find-or-create by case-insensitive name). Full management UI is Phase 6.
+- **"Create rule from this…"** is present but disabled ("Soon") until Phase 6 builds the rule editor.
+- **Transfers:** the drawer can flag/unflag a transaction as a transfer (unflagging unpairs both sides) and jump to the other half; manually pairing two arbitrary transactions is not built yet.
+- **Dev data:** `pnpm db:seed-fake [--setup]` creates ~10,000 deterministic fake transactions in three `fake-*` accounts (no connection, so syncing never touches them).
+- **E2E:** a third server seeded with the fake data runs the 10k-row checks; the list is virtualized, so e2e tests narrow with search before targeting older rows.

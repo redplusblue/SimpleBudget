@@ -1,5 +1,7 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CategoryOption } from "@/lib/finance/taxonomy";
 import { cn } from "@/lib/utils";
@@ -32,6 +34,54 @@ export function CategorySelect({
   allowNone?: boolean;
 }) {
   const current = categories.find((c) => c.id === value);
+  // Mounting a Radix Select per row is the most expensive part of rendering a long list, so compact
+  // (in-row) pickers start as a lightweight button and only become a real Select once used.
+  const [armed, setArmed] = useState(!compact);
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // The real trigger mounts in place of the button, so hand focus to it (Radix closes a menu opened without focus on its trigger).
+  const wasLazy = useRef(compact);
+  useEffect(() => {
+    if (armed && wasLazy.current) {
+      wasLazy.current = false;
+      triggerRef.current?.focus();
+      setOpen(true); // open after the real Select has mounted closed, like a normal user click would
+    }
+  }, [armed]);
+  const label = current ? (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <Dot color={current.color} />
+      <span className="truncate">{current.name}</span>
+    </span>
+  ) : (
+    "Uncategorized"
+  );
+  if (!armed) {
+    return (
+      <div
+        className={cn("min-w-0", className)}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          role="combobox"
+          aria-expanded={false}
+          aria-haspopup="listbox"
+          aria-controls={undefined}
+          aria-label={ariaLabel}
+          onClick={() => setArmed(true)}
+          className={cn(
+            "flex h-8 w-full items-center justify-between gap-1.5 rounded-full border border-transparent bg-surface-2 px-2.5 text-xs whitespace-nowrap outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+            !current && "text-muted-foreground",
+          )}
+        >
+          {label}
+          <ChevronDown className="size-4 shrink-0 opacity-50" aria-hidden />
+        </button>
+      </div>
+    );
+  }
   return (
     <div
       className={cn("min-w-0", className)}
@@ -39,10 +89,13 @@ export function CategorySelect({
       onKeyDown={(e) => e.stopPropagation()}
     >
       <Select
+        open={open}
+        onOpenChange={setOpen}
         value={value === null ? NONE : String(value)}
         onValueChange={(v) => onChange(v === NONE ? null : Number(v))}
       >
         <SelectTrigger
+          ref={triggerRef}
           aria-label={ariaLabel}
           className={cn(
             "w-full gap-1.5",
@@ -52,16 +105,7 @@ export function CategorySelect({
             !current && compact && "text-muted-foreground",
           )}
         >
-          <SelectValue>
-            {current ? (
-              <span className="flex min-w-0 items-center gap-1.5">
-                <Dot color={current.color} />
-                <span className="truncate">{current.name}</span>
-              </span>
-            ) : (
-              "Uncategorized"
-            )}
-          </SelectValue>
+          <SelectValue>{label}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           {allowNone && <SelectItem value={NONE}>Uncategorized</SelectItem>}

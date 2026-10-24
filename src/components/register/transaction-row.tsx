@@ -18,6 +18,8 @@ export interface RowProps {
   categories: CategoryOption[];
   showAccount: boolean;
   showBalance: boolean;
+  /** Render the two-line mobile layout instead of the desktop columns. */
+  mobile: boolean;
   selected: boolean;
   selectionMode: boolean;
   onOpen: (id: number) => void;
@@ -82,6 +84,7 @@ function TransactionRowView({
   categories,
   showAccount,
   showBalance,
+  mobile,
   selected,
   selectionMode,
   onOpen,
@@ -179,56 +182,56 @@ function TransactionRowView({
         row.pending && "bg-surface-2/30",
       )}
     >
-      {/* Mobile: two lines */}
-      <div className="flex min-h-16 items-center gap-3 py-2 md:hidden">
-        {selectionMode && checkbox}
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <div className="flex items-center justify-between gap-3">
+      {mobile ? (
+        <div className="flex min-h-16 items-center gap-3 py-2">
+          {selectionMode && checkbox}
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex items-center justify-between gap-3">
+              {payee}
+              <span className="shrink-0">{amount}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CategorySelect
+                value={row.categoryId}
+                categories={categories}
+                onChange={(c) => onCategoryChange(row.id, c)}
+                compact
+                className="max-w-[55%]"
+                aria-label={`Category for ${row.displayPayee}`}
+              />
+              {showAccount && <span className="truncate text-xs text-muted-foreground">{row.accountName}</span>}
+              <TagChips row={row} max={1} />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div
+          className="grid min-h-14 items-center gap-3 py-1.5"
+          style={{ gridTemplateColumns: desktopColumns(showBalance) }}
+        >
+          <span className="flex items-center">{checkbox}</span>
+          <div className="min-w-0">
             {payee}
-            <span className="shrink-0">{amount}</span>
+            {showAccount && <p className="truncate text-xs text-muted-foreground">{row.accountName}</p>}
           </div>
-          <div className="flex items-center gap-2">
-            <CategorySelect
-              value={row.categoryId}
-              categories={categories}
-              onChange={(c) => onCategoryChange(row.id, c)}
-              compact
-              className="max-w-[55%]"
-              aria-label={`Category for ${row.displayPayee}`}
-            />
-            {showAccount && <span className="truncate text-xs text-muted-foreground">{row.accountName}</span>}
-            <TagChips row={row} max={1} />
-          </div>
+          <CategorySelect
+            value={row.categoryId}
+            categories={categories}
+            onChange={(c) => onCategoryChange(row.id, c)}
+            compact
+            aria-label={`Category for ${row.displayPayee}`}
+          />
+          <TagChips row={row} max={2} />
+          <span className="text-right">{amount}</span>
+          {showBalance && (
+            <span className="text-right text-sm text-muted-foreground">
+              {row.runningBalanceCents !== null ? (
+                <Money cents={row.runningBalanceCents} currency={row.currency} />
+              ) : null}
+            </span>
+          )}
         </div>
-      </div>
-
-      {/* Desktop: columns */}
-      <div
-        className="hidden min-h-14 items-center gap-3 py-1.5 md:grid"
-        style={{ gridTemplateColumns: desktopColumns(showBalance) }}
-      >
-        <span className="flex items-center">{checkbox}</span>
-        <div className="min-w-0">
-          {payee}
-          {showAccount && <p className="truncate text-xs text-muted-foreground">{row.accountName}</p>}
-        </div>
-        <CategorySelect
-          value={row.categoryId}
-          categories={categories}
-          onChange={(c) => onCategoryChange(row.id, c)}
-          compact
-          aria-label={`Category for ${row.displayPayee}`}
-        />
-        <TagChips row={row} max={2} />
-        <span className="text-right">{amount}</span>
-        {showBalance && (
-          <span className="text-right text-sm text-muted-foreground">
-            {row.runningBalanceCents !== null ? (
-              <Money cents={row.runningBalanceCents} currency={row.currency} />
-            ) : null}
-          </span>
-        )}
-      </div>
+      )}
     </div>
   );
 }
