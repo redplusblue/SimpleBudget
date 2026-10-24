@@ -1,10 +1,10 @@
 import { sql } from "drizzle-orm";
+import { ACCOUNT_TYPES } from "../lib/finance/account-types";
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const nowSeconds = sql`(unixepoch())`;
 
-export const ACCOUNT_TYPES = ["checking", "savings", "credit", "investment", "loan", "cash", "other"] as const;
-export type AccountType = (typeof ACCOUNT_TYPES)[number];
+export { ACCOUNT_TYPES, type AccountType } from "../lib/finance/account-types";
 
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),

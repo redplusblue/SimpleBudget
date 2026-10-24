@@ -1,20 +1,24 @@
 "use client";
 
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ConnectSimpleFinForm } from "@/components/connect-simplefin-form";
+import { ImportStep } from "./import-step";
+import { AccountsStep } from "./accounts-step";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Password", "Connect"] as const;
+const STEPS = ["Password", "Connect", "Import", "Accounts"] as const;
+export type SetupStep = "password" | "connect" | "import" | "accounts";
+const STEP_INDEX: Record<SetupStep, number> = { password: 0, connect: 1, import: 2, accounts: 3 };
 const MIN_LENGTH = 10;
 
-export function SetupWizard({ step, connectionCount }: { step: "password" | "connect"; connectionCount: number }) {
-  const index = step === "password" ? 0 : 1;
+export function SetupWizard({ step }: { step: SetupStep }) {
+  const index = STEP_INDEX[step];
   return (
     <div className="space-y-4">
       <ol className="flex items-center justify-center gap-2 text-xs text-muted-foreground" aria-label="Setup progress">
@@ -29,12 +33,15 @@ export function SetupWizard({ step, connectionCount }: { step: "password" | "con
             >
               {i + 1}
             </span>
-            <span className={cn(i === index && "font-medium text-foreground")}>{label}</span>
-            {i < STEPS.length - 1 && <span className="mx-1 h-px w-6 bg-border" />}
+            <span className={cn("hidden sm:inline", i === index && "inline font-medium text-foreground")}>{label}</span>
+            {i < STEPS.length - 1 && <span className="mx-0.5 h-px w-4 bg-border sm:mx-1 sm:w-6" />}
           </li>
         ))}
       </ol>
-      {step === "password" ? <PasswordStep /> : <ConnectStep connectionCount={connectionCount} />}
+      {step === "password" && <PasswordStep />}
+      {step === "connect" && <ConnectStep />}
+      {step === "import" && <ImportStep />}
+      {step === "accounts" && <AccountsStep />}
     </div>
   );
 }
@@ -125,58 +132,16 @@ function PasswordStep() {
   );
 }
 
-function ConnectStep({ connectionCount }: { connectionCount: number }) {
+function ConnectStep() {
   const router = useRouter();
-  const [finishing, setFinishing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function finish() {
-    setFinishing(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/setup/complete", { method: "POST" });
-      if (res.ok) {
-        router.replace("/");
-        router.refresh();
-        return;
-      }
-      setError("Couldn't finish setup. Connect SimpleFIN first.");
-    } catch {
-      setError("Couldn't reach the server.");
-    } finally {
-      setFinishing(false);
-    }
-  }
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-xl">Connect SimpleFIN</CardTitle>
         <CardDescription>Link your accounts to start importing balances and transactions.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
-        {connectionCount > 0 && (
-          <div className="flex items-start gap-3 rounded-xl border border-border bg-surface-2 p-3 text-sm">
-            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-positive" />
-            <p>
-              SimpleFIN connected. You can add another token below, or finish setup. Your first sync will be available
-              soon.
-            </p>
-          </div>
-        )}
+      <CardContent>
         <ConnectSimpleFinForm onConnected={() => router.refresh()} />
-        {connectionCount > 0 && (
-          <>
-            {error && (
-              <p role="alert" className="text-sm text-negative">
-                {error}
-              </p>
-            )}
-            <Button variant="outline" onClick={finish} disabled={finishing} className="h-11 w-full md:h-9">
-              {finishing && <Loader2 className="animate-spin" />} Finish setup
-            </Button>
-          </>
-        )}
       </CardContent>
     </Card>
   );

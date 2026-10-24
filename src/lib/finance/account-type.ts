@@ -1,4 +1,4 @@
-import type { AccountType } from "@/db/schema";
+import type { AccountType } from "./account-types";
 
 const RULES: ReadonlyArray<[AccountType, RegExp]> = [
   ["credit", /\b(credit|card|visa|mastercard|amex|american express|discover|sapphire|freedom|platinum)\b/i],
