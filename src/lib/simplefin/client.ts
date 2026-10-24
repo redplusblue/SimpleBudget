@@ -1,7 +1,8 @@
 import "server-only";
+import { accountSetSchema, type SfAccountSet } from "./schemas";
 
 export type SimpleFinErrorCode =
-  "invalid_token" | "already_claimed" | "revoked" | "server" | "network" | "bad_response";
+  "invalid_token" | "already_claimed" | "revoked" | "rate_limited" | "server" | "network" | "bad_response";
 
 /** Messages never include URLs: access URLs embed credentials. */
 export class SimpleFinError extends Error {
@@ -79,4 +80,102 @@ export async function claimSetupToken(
     throw new SimpleFinError("bad_response", "SimpleFIN returned an unexpected response.");
   }
   return accessUrl;
+}
+
+export interface FetchAccountsOptions {
+  /** Decrypted access URL (contains credentials). Never log it. */
+  accessUrl: string;
+  /** Unix seconds. */
+  start?: number;
+  end?: number;
+  pending?: boolean;
+  balancesOnly?: boolean;
+  accountIds?: string[];
+  fetchImpl?: typeof fetch;
+  /** Called once per HTTP attempt (retries included) so callers can count against the daily quota. */
+  onRequest?: () => void;
+  sleep?: (ms: number) => Promise<void>;
+  timeoutMs?: number;
+  retries?: number;
+}
+
+const FETCH_TIMEOUT_MS = 30_000;
+const RETRIES = 2;
+const BACKOFF_MS = 500;
+
+const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** `fetch` rejects URLs with embedded credentials, so they move into a Basic auth header. */
+export function buildAccountsRequest(
+  opts: Pick<FetchAccountsOptions, "accessUrl" | "start" | "end" | "pending" | "balancesOnly" | "accountIds">,
+) {
+  let base: URL;
+  try {
+    base = new URL(opts.accessUrl);
+  } catch {
+    throw new SimpleFinError("bad_response", "The stored SimpleFIN access URL is invalid. Reconnect SimpleFIN.");
+  }
+  const user = decodeURIComponent(base.username);
+  const pass = decodeURIComponent(base.password);
+  const url = new URL(`${base.origin}${base.pathname.replace(/\/+$/, "")}/accounts`);
+  if (opts.start !== undefined) url.searchParams.set("start-date", String(Math.floor(opts.start)));
+  if (opts.end !== undefined) url.searchParams.set("end-date", String(Math.floor(opts.end)));
+  if (opts.pending) url.searchParams.set("pending", "1");
+  if (opts.balancesOnly) url.searchParams.set("balances-only", "1");
+  for (const id of opts.accountIds ?? []) url.searchParams.append("account", id);
+  const authorization = `Basic ${Buffer.from(`${user}:${pass}`).toString("base64")}`;
+  return { url: url.toString(), authorization };
+}
+
+/** GET {accessUrl}/accounts with a timeout, retries on 5xx/network errors only, and typed errors. */
+export async function fetchAccounts(opts: FetchAccountsOptions): Promise<SfAccountSet> {
+  const { url, authorization } = buildAccountsRequest(opts);
+  const doFetch = opts.fetchImpl ?? fetch;
+  const sleep = opts.sleep ?? defaultSleep;
+  const retries = opts.retries ?? RETRIES;
+
+  let lastError: SimpleFinError | undefined;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) await sleep(BACKOFF_MS * 2 ** (attempt - 1));
+    opts.onRequest?.();
+
+    let res: Response;
+    try {
+      res = await doFetch(url, {
+        headers: { Authorization: authorization, Accept: "application/json" },
+        redirect: "error",
+        signal: AbortSignal.timeout(opts.timeoutMs ?? FETCH_TIMEOUT_MS),
+      });
+    } catch {
+      lastError = new SimpleFinError("network", "Couldn't reach SimpleFIN.");
+      continue;
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      throw new SimpleFinError("revoked", "SimpleFIN access revoked — reconnect.");
+    }
+    if (res.status === 429) {
+      throw new SimpleFinError("rate_limited", "SimpleFIN is rate limiting requests. Try again later.");
+    }
+    if (res.status >= 500) {
+      lastError = new SimpleFinError("server", `SimpleFIN returned an error (HTTP ${res.status}).`);
+      continue;
+    }
+    if (!res.ok) {
+      throw new SimpleFinError("bad_response", `SimpleFIN rejected the request (HTTP ${res.status}).`);
+    }
+
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch {
+      throw new SimpleFinError("bad_response", "SimpleFIN returned something that isn't JSON.");
+    }
+    const parsed = accountSetSchema.safeParse(json);
+    if (!parsed.success) {
+      throw new SimpleFinError("bad_response", "SimpleFIN returned data in an unexpected format.");
+    }
+    return parsed.data;
+  }
+  throw lastError ?? new SimpleFinError("network", "Couldn't reach SimpleFIN.");
 }

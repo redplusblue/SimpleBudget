@@ -11,6 +11,7 @@ const STATUS: Record<SimpleFinErrorCode, number> = {
   invalid_token: 400,
   already_claimed: 409,
   revoked: 409,
+  rate_limited: 429,
   server: 502,
   network: 502,
   bad_response: 502,
