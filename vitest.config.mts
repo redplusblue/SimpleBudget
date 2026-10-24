@@ -11,6 +11,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    env: { APP_SECRET: "unit-test-secret-unit-test-secret-0123" },
     include: ["tests/unit/**/*.test.ts"],
   },
 });
