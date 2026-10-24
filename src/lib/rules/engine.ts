@@ -48,6 +48,18 @@ function compile(pattern: string): RegExp | null {
 export const rulePayee = (t: Pick<RuleTarget, "payeeOverride" | "payee" | "description">) =>
   normalizePayee(t.payeeOverride?.trim() || t.payee?.trim() || t.description);
 
+/** Normalizing is the costly part of matching, and every rule asks for it, so do it once per transaction. */
+const payeeCache = new WeakMap<RuleTarget, { text: string; key: string }>();
+function payeeOf(t: RuleTarget): { text: string; key: string } {
+  let hit = payeeCache.get(t);
+  if (!hit) {
+    const text = rulePayee(t);
+    hit = { text, key: payeeKey(text) };
+    payeeCache.set(t, hit);
+  }
+  return hit;
+}
+
 export function conditionMatches(c: Condition, t: RuleTarget): boolean {
   switch (c.field) {
     case "description": {
@@ -57,12 +69,12 @@ export function conditionMatches(c: Condition, t: RuleTarget): boolean {
       return compile(c.value)?.test(text) ?? false;
     }
     case "payee": {
-      const text = rulePayee(t);
+      const { text, key } = payeeOf(t);
       if (c.op === "contains") {
         const needle = payeeKey(c.value);
-        return needle.length > 0 && payeeKey(text).includes(needle);
+        return needle.length > 0 && key.includes(needle);
       }
-      if (c.op === "equals") return payeeKey(text) === payeeKey(c.value);
+      if (c.op === "equals") return key === payeeKey(c.value);
       return compile(c.value)?.test(text) ?? false;
     }
     case "amount": {
