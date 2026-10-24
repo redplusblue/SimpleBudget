@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { expect, type Page } from "@playwright/test";
 import { createSecretBox } from "../../src/lib/secret-box";
 
 export const PASSWORD = "e2e correct horse battery";
@@ -21,4 +22,14 @@ export function insertConnection(dbPath: string, accessUrl: string) {
   } finally {
     db.close();
   }
+}
+
+/**
+ * The page must fit the *configured* viewport. Comparing against `window.innerWidth` isn't enough: on mobile
+ * emulation, overflowing content makes the browser widen the layout viewport, which hides the very bug.
+ */
+export async function expectNoHorizontalOverflow(page: Page) {
+  const width = page.viewportSize()!.width;
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(scrollWidth, `page is ${scrollWidth}px wide in a ${width}px viewport`).toBeLessThanOrEqual(width);
 }

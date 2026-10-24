@@ -38,7 +38,7 @@ export default defineConfig({
     // Pre-configured install (password set, one connection, logged in via storageState).
     ...(["desktop", "mobile"] as const).map((name) => ({
       name,
-      testIgnore: /(fresh|big)\.spec\.ts/,
+      testIgnore: /(fresh|big|screenshots)\.spec\.ts/,
       use: {
         ...viewports[name],
         baseURL: `http://127.0.0.1:${SEEDED_PORT}`,
@@ -48,7 +48,7 @@ export default defineConfig({
     // 10,000 fake transactions: virtualization and running-balance checks.
     {
       name: "big",
-      testMatch: /big\.spec\.ts/,
+      testMatch: /(big|screenshots)\.spec\.ts/,
       use: { ...viewports.desktop, baseURL: `http://127.0.0.1:${BIG_PORT}` },
     },
     // Brand-new install, used only by the setup wizard spec.

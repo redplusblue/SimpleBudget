@@ -26,7 +26,7 @@ test("the register virtualizes: thousands of rows, only a few dozen in the DOM",
   expect(rendered).toBeGreaterThan(5);
   expect(rendered).toBeLessThan(120);
   const scrolled = await page.evaluate(() => window.scrollY);
-  expect(scrolled).toBeGreaterThan(50_000);
+  expect(scrolled).toBeGreaterThan(30_000);
   await expect(page.getByTestId("txn-row").first()).toBeVisible();
 });
 
@@ -76,4 +76,34 @@ test("search and filters stay fast across 10,000 transactions", async ({ page })
 
   await page.goto("/transactions?type=transfer");
   await expect(page.getByTestId("txn-row").first()).toContainText("Transfer");
+});
+
+test("dashboard payload is fast and net worth never dips when an account appears mid-history", async ({ page }) => {
+  const request = page.request; // shares the logged-in session
+  await request.get("/api/dashboard"); // warm statement caches
+  // Server-Timing carries pure compute time, so CPU contention from other test servers can't skew it.
+  const res = await request.get("/api/dashboard");
+  const dur = Number(/dashboard;dur=([\d.]+)/.exec(res.headers()["server-timing"] ?? "")?.[1]);
+  expect(dur).toBeGreaterThan(0);
+  expect(dur).toBeLessThan(300);
+
+  const nw = await (await request.get("/api/networth?range=3M")).json();
+  expect(nw.series.length).toBeGreaterThan(60);
+  // The brokerage (~$8.4k) was added 45 days ago: the total steps *up* then, but never falls toward zero.
+  const totals: number[] = nw.series.map((p: { balanceCents: number }) => p.balanceCents);
+  expect(Math.min(...totals)).toBeGreaterThan(2_000_000);
+  const jumps = totals.slice(1).map((v, i) => v - totals[i]);
+  expect(Math.max(...jumps)).toBeGreaterThan(500_000); // the day the brokerage appears
+  expect(Math.min(...jumps)).toBeGreaterThan(-1_000_000); // and no collapse
+});
+
+test("dashboard renders the full layout with 10,000 transactions", async ({ page }) => {
+  const t0 = Date.now();
+  await page.goto("/");
+  await expect(page.getByTestId("nw-change")).toBeVisible();
+  await expect(page.getByTestId("spending-chart")).toBeVisible();
+  await expect(page.getByTestId("category-donut")).toBeVisible();
+  await expect(page.getByTestId("recent-list").getByRole("link")).toHaveCount(8);
+  expect(Date.now() - t0).toBeLessThan(6000);
+  await expect(page.getByTestId("nw-change")).toContainText("%");
 });

@@ -1,3 +1,4 @@
+import { expectNoHorizontalOverflow } from "./helpers";
 import { expect, test } from "@playwright/test";
 
 test("shell renders and navigates", async ({ page }) => {
@@ -21,8 +22,7 @@ test("theme choice persists across reloads", async ({ page }) => {
 
 test("no horizontal overflow", async ({ page }) => {
   await page.goto("/");
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
-  expect(overflow).toBe(false);
+  await expectNoHorizontalOverflow(page);
 });
 
 test("health endpoint", async ({ request }) => {

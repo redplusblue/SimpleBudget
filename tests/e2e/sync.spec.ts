@@ -1,3 +1,4 @@
+import { expectNoHorizontalOverflow } from "./helpers";
 import { expect, test } from "@playwright/test";
 
 test("sync pill shows the last sync and the imported data is reachable via the API", async ({ page, request }) => {
@@ -31,7 +32,7 @@ test("settings: history lists the seed import; schedule is editable", async ({ p
   await expect(page.getByRole("heading", { name: "History" })).toBeVisible();
   // The seed import added 22 transactions (cells render as "OK" then "22"); other runs may follow it.
   await expect(page.getByRole("row").filter({ hasText: /OK22/ }).first()).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectNoHorizontalOverflow(page);
 
   await page.getByRole("combobox", { name: "Schedule" }).click();
   await page.getByRole("option", { name: "Every 12 hours" }).click();

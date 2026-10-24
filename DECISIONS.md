@@ -51,3 +51,17 @@
 - **Transfers:** the drawer can flag/unflag a transaction as a transfer (unflagging unpairs both sides) and jump to the other half; manually pairing two arbitrary transactions is not built yet.
 - **Dev data:** `pnpm db:seed-fake [--setup]` creates ~10,000 deterministic fake transactions in three `fake-*` accounts (no connection, so syncing never touches them).
 - **E2E:** a third server seeded with the fake data runs the 10k-row checks; the list is virtualized, so e2e tests narrow with search before targeting older rows.
+
+## Phase 5
+
+- **Net worth counts every account except hidden ones and ones flagged "exclude from net worth".** A hidden account disappears from every list, so it shouldn't silently move the total (the hide switch says "from lists and net worth"). Closed accounts still count (their balance is normally zero).
+- **Assets/liabilities** are by sign, not account type: positive balances are assets, negative balances are liabilities (a card with a credit balance is an asset). Net worth = assets − liabilities, so SimpleFIN's sign convention is used unchanged.
+- **Net worth history** is the sum of each account's latest snapshot on or before the day, carried forward; days before an account's first snapshot are *absent* for that account (so adding an account mid-history causes a step *up* on that day, never a dip to zero). Today's point is always replaced by the live balances so the hero number, chart and account list agree.
+- **Change vs 30 days ago:** measured from exactly 30 days back when data reaches that far, otherwise from the first day with data ("since Oct 14"); with a single day of history the chip says "Not enough history yet". The percentage uses the absolute baseline, so paying down debt reads as a gain, and is omitted for a zero baseline.
+- **Dashboard payload** returns net worth for the default 3M range; other ranges load from `/api/networth?range=` (the chart keeps the previous series on screen while loading). Hero numbers count up over 300 ms (not with reduced motion).
+- **Spending** uses the shared expense definition (transfers and excluded items never count; pending purchases count on their purchase date), bucketed by local day in the server `TZ`. Pace compares with last month *to the same day-of-month*; the 3-month average is over the three months before the displayed one, with short months carried at their total.
+- **Server-Timing** on `/api/dashboard` reports pure compute time. About 30 ms with 10,000 transactions (the plan's budget is 300 ms); the e2e test asserts on this header rather than wall-clock time, which is skewed by other processes.
+- **Placeholders** for Upcoming (Phase 7) and Insights (Phase 9) are static cards.
+- **Month picker** isn't on the dashboard (always the current month); the API accepts `?month=` and Phase 7 adds the picker.
+- **Overflow checks:** mobile emulation widens the layout viewport when content overflows, which hides the bug from `innerWidth` comparisons (a dashboard grid column briefly did exactly that). The e2e helper `expectNoHorizontalOverflow` compares against the configured viewport instead, and all specs use it.
+- **Screenshots** in `docs/screenshots/` come from the 10k-transaction fake dataset: `SCREENSHOTS=1 pnpm test:e2e --project=big tests/e2e/screenshots.spec.ts` regenerates them (the fixed tab bar is hidden for full-page captures).

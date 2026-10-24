@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { insertConnection, MOCK_PORT } from "./helpers";
+import { insertConnection, MOCK_PORT, expectNoHorizontalOverflow } from "./helpers";
 
 test("fresh install walks through the whole setup wizard on mobile", async ({ page }) => {
   await page.goto("/");
@@ -23,7 +23,7 @@ test("fresh install walks through the whole setup wizard on mobile", async ({ pa
   const box = (await page.getByRole("list", { name: "Setup progress" }).boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(390);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectNoHorizontalOverflow(page);
 
   // Reloading resumes at the connect step.
   await page.reload();
@@ -43,7 +43,7 @@ test("fresh install walks through the whole setup wizard on mobile", async ({ pa
   await page.getByRole("button", { name: "Start import" }).click();
 
   await expect(page.getByRole("heading", { name: "Confirm your accounts" })).toBeVisible({ timeout: 20_000 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectNoHorizontalOverflow(page);
   await expect(page.getByText("Total Checking")).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Type of Sapphire Credit Card" })).toHaveText("Credit card");
   await expect(page.getByRole("combobox", { name: "Type of High Yield Savings" })).toHaveText("Savings");

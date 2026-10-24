@@ -1,3 +1,4 @@
+import { expectNoHorizontalOverflow } from "./helpers";
 import { expect, test, type Page } from "@playwright/test";
 
 const CHECKING = "/accounts/ACT-chk-1001";
@@ -26,7 +27,7 @@ test.describe("accounts overview", () => {
     await expect(page.getByRole("main").getByRole("link", { name: /Sapphire Credit Card/ })).toContainText(
       "-$1,234.56",
     );
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expectNoHorizontalOverflow(page);
     await page
       .getByRole("link", { name: /High Yield Savings/ })
       .first()
@@ -44,7 +45,7 @@ test.describe("account page and register", () => {
     await expect(page.getByText("Balance, last 90 days")).toBeVisible();
     await expect(page.getByText("Money in")).toBeVisible();
     await expect(page.getByTestId("txn-row").first()).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expectNoHorizontalOverflow(page);
   });
 
   test("unknown accounts show a friendly message", async ({ page }) => {
