@@ -1,0 +1,13 @@
+services:
+  simplebudget:
+    build: .
+    image: simplebudget:local
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    environment:
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in your environment or a .env file (min 32 chars)}
+      TZ: ${TZ:-UTC}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    volumes:
+      - ./data:/data
