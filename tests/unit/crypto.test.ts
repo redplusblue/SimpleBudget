@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createSecretBox, decrypt, encrypt } from "@/lib/crypto";
+import { decrypt, encrypt } from "@/lib/crypto";
+import { createSecretBox } from "@/lib/secret-box";
 
 const SECRET = "a-very-long-secret-value-0123456789abcdef";
 
