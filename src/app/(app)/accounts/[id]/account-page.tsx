@@ -403,7 +403,7 @@ function AccountSettings({
           <SwitchRow
             id="acct-hidden"
             label="Hide account"
-            description="Remove it from lists. Its data is kept."
+            description="Remove it from lists and net worth. Its data is kept."
             checked={hidden}
             onChange={setHidden}
           />
