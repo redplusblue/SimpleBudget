@@ -14,10 +14,7 @@ export function getSetting(db: Db, key: string): string | undefined {
 }
 
 export function setSetting(db: Db, key: string, value: string): void {
-  db.insert(settings)
-    .values({ key, value })
-    .onConflictDoUpdate({ target: settings.key, set: { value } })
-    .run();
+  db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
 }
 
 export function deleteSetting(db: Db, key: string): void {

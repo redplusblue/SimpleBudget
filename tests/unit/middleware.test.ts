@@ -1,0 +1,80 @@
+import { sealData } from "iron-session";
+import { NextRequest } from "next/server";
+import { describe, expect, it, vi } from "vitest";
+import { sanitizeNextPath } from "@/lib/auth/next-path";
+import { SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/lib/auth/session-options";
+import { middleware } from "@/middleware";
+
+const req = (path: string, cookie?: string) =>
+  new NextRequest(`http://localhost:3000${path}`, { headers: cookie ? { cookie: `${SESSION_COOKIE}=${cookie}` } : {} });
+
+const seal = (data: object, ttl = SESSION_TTL_SECONDS) => sealData(data, { password: process.env.APP_SECRET!, ttl });
+
+describe("middleware", () => {
+  it.each([
+    "/api/accounts",
+    "/api/sync",
+    "/api/connections",
+    "/api/connections/1",
+    "/api/setup/complete",
+    "/api/auth/logout",
+  ])("returns 401 JSON for %s without a session", async (path) => {
+    const res = await middleware(req(path));
+    expect(res.status).toBe(401);
+  });
+
+  it("redirects pages to /login with the original path", async () => {
+    const res = await middleware(req("/accounts?x=1"));
+    expect(res.status).toBe(307);
+    const loc = new URL(res.headers.get("location")!);
+    expect(loc.pathname).toBe("/login");
+    expect(loc.searchParams.get("next")).toBe("/accounts?x=1");
+  });
+
+  it("does not add ?next for the root page", async () => {
+    const res = await middleware(req("/"));
+    expect(new URL(res.headers.get("location")!).search).toBe("");
+  });
+
+  it.each(["/login", "/setup", "/api/health", "/api/auth/login", "/api/setup/password"])(
+    "lets %s through",
+    async (path) => {
+      const res = await middleware(req(path));
+      expect(res.headers.get("location")).toBeNull();
+      expect(res.status).toBe(200);
+    },
+  );
+
+  it("accepts a valid session", async () => {
+    const res = await middleware(req("/api/accounts", await seal({ authed: true })));
+    expect(res.status).toBe(200);
+  });
+
+  it("rejects sessions that are unauthenticated, forged, or expired", async () => {
+    expect((await middleware(req("/api/x", await seal({})))).status).toBe(401);
+    expect((await middleware(req("/api/x", "Fe26.2**garbage"))).status).toBe(401);
+    const shortLived = await seal({ authed: true }, 60);
+    expect((await middleware(req("/api/x", shortLived))).status).toBe(200);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 2 * 60 * 60 * 1000);
+    try {
+      expect((await middleware(req("/api/x", shortLived))).status).toBe(401);
+    } finally {
+      vi.useRealTimers();
+    }
+    const forged = await sealData({ authed: true }, { password: "another-secret-another-secret-123456", ttl: 60 });
+    expect((await middleware(req("/api/x", forged))).status).toBe(401);
+  });
+});
+
+describe("sanitizeNextPath", () => {
+  it("keeps local paths", () => {
+    expect(sanitizeNextPath("/accounts?x=1")).toBe("/accounts?x=1");
+  });
+  it.each([undefined, null, "", "https://evil.com", "//evil.com", "/\\evil.com", "evil", "/a\nb"])(
+    "falls back to / for %j",
+    (v) => {
+      expect(sanitizeNextPath(v as string | null | undefined)).toBe("/");
+    },
+  );
+});
