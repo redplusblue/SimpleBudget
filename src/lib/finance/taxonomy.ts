@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
 import { categories, tags } from "@/db/schema";
 import { paletteColor } from "@/db/palette";
@@ -10,8 +10,11 @@ export interface CategoryOption {
   color: string;
   icon: string | null;
   isIncome: boolean;
+  /** Archived categories keep their transactions but are hidden from pickers. */
+  isArchived: boolean;
 }
 
+/** Every category (archived ones flagged) so rows can always show the category they were filed under. */
 export function listCategories(db: DbLike): CategoryOption[] {
   return db
     .select({
@@ -21,9 +24,9 @@ export function listCategories(db: DbLike): CategoryOption[] {
       color: categories.color,
       icon: categories.icon,
       isIncome: categories.isIncome,
+      isArchived: categories.isArchived,
     })
     .from(categories)
-    .where(eq(categories.isArchived, false))
     .orderBy(categories.sortOrder, categories.name)
     .all();
 }
