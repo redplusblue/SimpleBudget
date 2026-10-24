@@ -14,6 +14,7 @@ import {
   transactions,
 } from "@/db/schema";
 import { addConnection } from "@/lib/connections";
+import { createRule } from "@/lib/rules/store";
 import { localDateString } from "@/lib/finance/dates";
 import {
   acquireSyncLock,
@@ -531,5 +532,107 @@ describe("limits", () => {
     setSyncProgress(db, { done: 0, total: 1 });
     await sync(db, bank);
     expect(acquireSyncLock(db, NOW + 1)).toBe(true);
+  });
+});
+
+describe("rules during sync", () => {
+  it("categorizes newly imported transactions with the user's rules", async () => {
+    const { db, bank } = setup();
+    const groceries = db
+      .select()
+      .from(categories)
+      .all()
+      .find((c) => c.name === "Groceries")!.id;
+    createRule(db, {
+      name: "TJ",
+      conditions: [{ field: "payee", op: "contains", value: "trader joe" }],
+      actions: { categoryId: groceries },
+    });
+    await sync(db, bank);
+    expect(txn(db, "chk-009").categoryId).toBe(groceries);
+    expect(txn(db, "chk-001").categoryId).toBeNull();
+  });
+
+  it("only touches new rows: a rule added later leaves existing transactions alone on re-sync", async () => {
+    const { db, bank } = setup();
+    await sync(db, bank);
+    const groceries = db
+      .select()
+      .from(categories)
+      .all()
+      .find((c) => c.name === "Groceries")!.id;
+    createRule(db, {
+      conditions: [{ field: "payee", op: "contains", value: "trader joe" }],
+      actions: { categoryId: groceries },
+    });
+    await sync(db, bank);
+    expect(txn(db, "chk-009").categoryId).toBeNull();
+    // ...but a new matching transaction is categorized
+    bank.accounts[0].transactions.push({
+      id: "chk-new",
+      posted: NOW - 3600,
+      amount: "-12.00",
+      description: "TRADER JOE'S #9",
+    });
+    await sync(db, bank);
+    expect(txn(db, "chk-new").categoryId).toBe(groceries);
+  });
+
+  it("never overwrites an edit that was moved onto a newly posted transaction", async () => {
+    const { db, bank } = setup();
+    await sync(db, bank);
+    const [dining, groceries] = ["Dining", "Groceries"].map(
+      (n) =>
+        db
+          .select()
+          .from(categories)
+          .all()
+          .find((c) => c.name === n)!.id,
+    );
+    createRule(db, {
+      conditions: [{ field: "payee", op: "contains", value: "whole foods" }],
+      actions: { categoryId: groceries },
+    });
+    db.update(transactions).set({ categoryId: dining }).where(eq(transactions.sfTxnId, "chk-p01")).run();
+    const list = bank.accounts[0].transactions as Array<{ id: string }>;
+    list.splice(
+      list.findIndex((t) => t.id === "chk-p01"),
+      1,
+    );
+    list.push({
+      id: "chk-posted-wf",
+      posted: NOW - 3600,
+      amount: "-42.18",
+      description: "WHOLE FOODS #123 AUSTIN TX",
+    } as never);
+    await sync(db, bank);
+    expect(txn(db, "chk-posted-wf").categoryId).toBe(dining); // the user's choice wins over the rule
+  });
+
+  it("runs rules before transfer detection so a rule can flag a transfer", async () => {
+    const { db, bank } = setup();
+    createRule(db, {
+      conditions: [{ field: "description", op: "contains", value: "INTEREST PAID" }],
+      actions: { markTransfer: true },
+    });
+    await sync(db, bank);
+    expect(txn(db, "sav-002")).toMatchObject({ isTransfer: true, transferPairId: null });
+  });
+
+  it("is idempotent with rules in play", async () => {
+    const { db, bank } = setup();
+    const groceries = db
+      .select()
+      .from(categories)
+      .all()
+      .find((c) => c.name === "Groceries")!.id;
+    createRule(db, {
+      conditions: [{ field: "payee", op: "contains", value: "trader joe" }],
+      actions: { categoryId: groceries },
+    });
+    await sync(db, bank);
+    const before = allTxns(db);
+    await sync(db, bank);
+    expect(allTxns(db)).toEqual(before);
   });
 });

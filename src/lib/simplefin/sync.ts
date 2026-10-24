@@ -21,6 +21,7 @@ import {
   type Window,
 } from "./limits";
 import { parseAccount, type ParsedAccount } from "./parse";
+import { applyRulesToNew } from "@/lib/rules/store";
 import { reconcilePending } from "./pending";
 import type { SfAccountSet } from "./schemas";
 
@@ -376,7 +377,9 @@ function applyResponse(
     // missing pending items as gone; they're cleaned up by a later healthy sync.
     if (response.errors.length === 0) reconcilePending(db, acct.id, seen, window, now, now);
 
-    // Phase 6 runs categorization rules on `detect` here, before transfer detection.
+    // Rules fill in categories, tags, payees and flags for the new rows (never overwriting edits, including
+    // ones just carried over from a vanished pending row), then transfer detection looks at the result.
+    applyRulesToNew(db, detect);
     detectTransfers(db, detect);
     stats.newIds.push(...detect);
   }
