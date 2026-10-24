@@ -4,8 +4,9 @@ import { accounts, categories, tags, transactionTags, transactions } from "@/db/
 import { parseCents } from "./cents";
 import { addDaysToDate, isDateString, zonedDayStart } from "./dates";
 import { effectiveDateSql } from "./sql";
-import type {
-  TagChip,
+import {
+  displayPayee,
+  type TagChip,
   TransactionDetail,
   TransactionFilters,
   TransactionPage,
@@ -135,9 +136,6 @@ const rowSelect = {
 };
 
 type SelectedRow = Omit<TransactionRow, "displayPayee" | "tags" | "runningBalanceCents">;
-
-export const displayPayee = (r: Pick<TransactionRow, "payeeOverride" | "payee" | "description">) =>
-  r.payeeOverride?.trim() || r.payee?.trim() || r.description;
 
 function loadTags(db: DbLike, ids: number[]): Map<number, TagChip[]> {
   const map = new Map<number, TagChip[]>();

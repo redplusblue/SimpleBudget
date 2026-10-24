@@ -68,3 +68,8 @@ export interface TransactionDetail extends TransactionRow {
     "id" | "accountName" | "displayPayee" | "amountCents" | "currency" | "effectiveDate"
   > | null;
 }
+
+/** Override, else bank payee, else description. */
+export function displayPayee(r: Pick<TransactionRow, "payeeOverride" | "payee" | "description">): string {
+  return r.payeeOverride?.trim() || r.payee?.trim() || r.description;
+}
