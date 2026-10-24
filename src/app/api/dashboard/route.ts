@@ -21,10 +21,14 @@ export async function GET(request: Request) {
   const parsed = query.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success)
     return NextResponse.json({ error: "invalid_request", message: parsed.error.issues[0]?.message }, { status: 400 });
+  const started = performance.now();
   const payload = getDashboard(getDb(), {
     month: parsed.data.month,
     now: Math.floor(Date.now() / 1000),
     timeZone: getEnv().TZ,
   });
-  return NextResponse.json(payload);
+  // Pure compute time (not queueing behind other requests), so it can be monitored and asserted in tests.
+  return NextResponse.json(payload, {
+    headers: { "Server-Timing": `dashboard;dur=${(performance.now() - started).toFixed(1)}` },
+  });
 }

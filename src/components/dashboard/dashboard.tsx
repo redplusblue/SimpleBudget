@@ -67,23 +67,23 @@ export function Dashboard() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-12">
-      <div className="lg:col-span-8">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+      <div className="min-w-0 lg:col-span-8">
         <NetWorthCard summary={data.netWorth} />
       </div>
-      <div className="lg:col-span-4">
+      <div className="min-w-0 lg:col-span-4">
         <MonthGlanceCard glance={data.glance} />
       </div>
-      <div className="lg:col-span-8">
+      <div className="min-w-0 lg:col-span-8">
         <SpendingPaceChart chart={data.spending} />
       </div>
-      <div className="lg:col-span-4">
+      <div className="min-w-0 lg:col-span-4">
         <TopCategoriesCard breakdown={data.categories} month={data.month} />
       </div>
-      <div className="lg:col-span-8">
+      <div className="min-w-0 lg:col-span-8">
         <RecentTransactionsCard rows={data.recent} categories={categories} />
       </div>
-      <div className="space-y-4 lg:col-span-4">
+      <div className="min-w-0 space-y-4 lg:col-span-4">
         <AccountBalancesCard groups={data.accounts} />
         <UpcomingCard />
         <InsightsTeaser />
