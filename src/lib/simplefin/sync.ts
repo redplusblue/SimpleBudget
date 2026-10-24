@@ -133,6 +133,13 @@ export function startSync(db: Db, opts: SyncOptions = {}): { ok: true; done: Pro
   return { ok: true, done };
 }
 
+/** Records a finished, failed run for a sync that was refused (e.g. the scheduler hit the quota) so the UI shows why. */
+export function recordRefusedRun(db: Db, refusal: SyncRefusal, now = unixNow()): void {
+  db.insert(syncRuns)
+    .values({ startedAt: now, finishedAt: now, status: "error", errorsJson: JSON.stringify([refusal.message]) })
+    .run();
+}
+
 /** Runs a sync and waits for it (scheduler, tests). */
 export async function runSync(db: Db, opts: SyncOptions = {}): Promise<SyncResult | SyncRefusal> {
   const started = startSync(db, opts);
