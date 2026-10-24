@@ -5,8 +5,8 @@ test.describe("logged in", () => {
   test("settings: connections list, add dialog and remove confirmation", async ({ page }) => {
     await page.goto("/settings");
     await expect(page).toHaveURL(/\/settings\/connections$/);
-    await expect(page.getByText("Test Bank")).toBeVisible();
-    await expect(page.getByText("Re-authenticate with your bank")).toBeVisible();
+    await expect(page.getByText("First Test Bank")).toBeVisible();
+    await expect(page.getByText(/3 accounts/)).toBeVisible();
 
     await page.getByRole("button", { name: "Add another setup token" }).click();
     const token = page.getByRole("textbox", { name: "Setup token" });
@@ -16,13 +16,13 @@ test.describe("logged in", () => {
     await expect(page.locator("p[role=alert]")).toContainText("doesn't look like a SimpleFIN setup token");
     await page.keyboard.press("Escape");
 
-    await page.getByRole("button", { name: "Remove Test Bank connection" }).click();
+    await page.getByRole("button", { name: "Remove First Test Bank connection" }).click();
     const sw = page.getByRole("switch", { name: /delete its imported data/i });
     await expect(sw).toHaveAttribute("aria-checked", "false");
     await sw.click();
     await expect(sw).toHaveAttribute("aria-checked", "true");
     await page.getByRole("button", { name: "Cancel" }).click();
-    await expect(page.getByText("Test Bank")).toBeVisible();
+    await expect(page.getByText("First Test Bank")).toBeVisible();
   });
 
   test("log out then log in again", async ({ page }) => {

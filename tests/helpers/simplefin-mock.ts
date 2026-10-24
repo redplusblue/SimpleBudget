@@ -8,14 +8,23 @@ export const ACCESS_URL = "https://user:secret@bank.test/simplefin";
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export function loadFixture(name: "checking" | "credit-card" | "savings"): Json {
-  return JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, `../fixtures/${name}.json`), "utf8"));
+  return JSON.parse(fs.readFileSync(path.resolve(__dirname, `../fixtures/${name}.json`), "utf8"));
 }
 
-export const loadAllFixtures = (): Json[] => [
-  loadFixture("checking"),
-  loadFixture("credit-card"),
-  loadFixture("savings"),
-];
+/** `shiftSeconds` moves every timestamp so the fixtures look recent no matter when the tests run. */
+export function loadAllFixtures(shiftSeconds = 0): Json[] {
+  const shift = (n: unknown) => (typeof n === "number" && n > 0 ? n + shiftSeconds : n);
+  return (["checking", "credit-card", "savings"] as const).map((name) => {
+    const a = loadFixture(name);
+    a["balance-date"] = shift(a["balance-date"]);
+    a.transactions = a.transactions.map((t: Json) => ({
+      ...t,
+      posted: shift(t.posted),
+      ...(t.transacted_at ? { transacted_at: shift(t.transacted_at) } : {}),
+    }));
+    return a;
+  });
+}
 
 export interface MockBank {
   accounts: Json[];

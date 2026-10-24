@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const SEEDED_PORT = Number(process.env.E2E_PORT ?? 3100);
 const FRESH_PORT = SEEDED_PORT + 1;
-const SECRET = "e2e-secret-e2e-secret-e2e-secret-e2e";
+const SECRET = "e2e-secret-e2e-secret-e2e-secret-e2e"; // keep in sync with E2E_SECRET in tests/e2e/helpers.ts
 
 const server = (port: number, db: string) => ({
   // Start from an empty database every run.
