@@ -11,3 +11,34 @@ export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   cash: "Cash",
   other: "Other",
 };
+
+export type AccountGroupKey = "cash" | "credit" | "investments" | "loans" | "other" | "closed";
+
+export const ACCOUNT_GROUP_LABELS: Record<AccountGroupKey, string> = {
+  cash: "Cash",
+  credit: "Credit",
+  investments: "Investments",
+  loans: "Loans",
+  other: "Other",
+  closed: "Closed",
+};
+
+export const ACCOUNT_GROUP_ORDER: AccountGroupKey[] = ["cash", "credit", "investments", "loans", "other", "closed"];
+
+export function groupKeyFor(type: AccountType, isClosed: boolean): AccountGroupKey {
+  if (isClosed) return "closed";
+  switch (type) {
+    case "checking":
+    case "savings":
+    case "cash":
+      return "cash";
+    case "credit":
+      return "credit";
+    case "investment":
+      return "investments";
+    case "loan":
+      return "loans";
+    default:
+      return "other";
+  }
+}
