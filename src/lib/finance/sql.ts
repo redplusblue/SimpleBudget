@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { and, eq, sql, type SQL } from "drizzle-orm";
 import { transactions } from "@/db/schema";
 
 /**
@@ -6,3 +6,21 @@ import { transactions } from "@/db/schema";
  * purchase date, falling back to when we first saw them.
  */
 export const effectiveDateSql = sql<number>`CASE WHEN ${transactions.pending} = 1 THEN COALESCE(${transactions.transactedAt}, ${transactions.importedAt}) ELSE ${transactions.posted} END`;
+
+/**
+ * Expense = money out, not a transfer, not excluded from stats, and not filed under an income category.
+ * Credit card payments are transfers, so purchases count once, when they happen.
+ */
+export const expenseCondition: SQL = and(
+  sql`${transactions.amountCents} < 0`,
+  eq(transactions.isTransfer, false),
+  eq(transactions.isExcluded, false),
+  sql`coalesce((select is_income from categories cat where cat.id = ${transactions.categoryId}), 0) = 0`,
+)!;
+
+/** Income = money in, not a transfer, not excluded from stats. */
+export const incomeCondition: SQL = and(
+  sql`${transactions.amountCents} > 0`,
+  eq(transactions.isTransfer, false),
+  eq(transactions.isExcluded, false),
+)!;

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   addDaysToDate,
+  daysInMonth,
+  shiftMonth,
   currentMonth,
   isDateString,
   localDateString,
@@ -70,5 +72,24 @@ describe("date helpers", () => {
     expect(currentMonth(t, "UTC")).toBe("2026-11");
     expect(currentMonth(t, "America/New_York")).toBe("2026-10");
     expect(localDateString(t, "America/New_York")).toBe("2026-10-31");
+  });
+});
+
+describe("month arithmetic", () => {
+  it("counts days in months including leap years", () => {
+    expect(daysInMonth("2026-02")).toBe(28);
+    expect(daysInMonth("2028-02")).toBe(29);
+    expect(daysInMonth("2026-10")).toBe(31);
+    expect(daysInMonth("2026-11")).toBe(30);
+  });
+  it("shifts months across year boundaries", () => {
+    expect(shiftMonth("2026-01", -1)).toBe("2025-12");
+    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
+    expect(shiftMonth("2026-03", -14)).toBe("2025-01");
+    expect(shiftMonth("2026-03", 0)).toBe("2026-03");
+  });
+  it("rejects bad months", () => {
+    expect(() => daysInMonth("2026-1")).toThrow();
+    expect(() => shiftMonth("x", 1)).toThrow();
   });
 });

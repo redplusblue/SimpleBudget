@@ -1,9 +1,9 @@
 import { and, desc, eq, exists, gt, inArray, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
-import { accounts, categories, tags, transactionTags, transactions } from "@/db/schema";
+import { accounts, tags, transactionTags, transactions } from "@/db/schema";
 import { parseCents } from "./cents";
 import { addDaysToDate, isDateString, zonedDayStart } from "./dates";
-import { effectiveDateSql } from "./sql";
+import { effectiveDateSql, expenseCondition, incomeCondition } from "./sql";
 import {
   displayPayee,
   type TagChip,
@@ -77,24 +77,10 @@ export function buildConditions(filters: TransactionFilters, timeZone: string): 
 
   switch (filters.type) {
     case "expense":
-      // Expense = money out, not a transfer, not excluded, and not filed under an income category.
-      c.push(
-        and(
-          sql`${transactions.amountCents} < 0`,
-          eq(transactions.isTransfer, false),
-          eq(transactions.isExcluded, false),
-          sql`coalesce((select is_income from ${categories} cat where cat.id = ${transactions.categoryId}), 0) = 0`,
-        ),
-      );
+      c.push(expenseCondition);
       break;
     case "income":
-      c.push(
-        and(
-          sql`${transactions.amountCents} > 0`,
-          eq(transactions.isTransfer, false),
-          eq(transactions.isExcluded, false),
-        ),
-      );
+      c.push(incomeCondition);
       break;
     case "transfer":
       c.push(eq(transactions.isTransfer, true));

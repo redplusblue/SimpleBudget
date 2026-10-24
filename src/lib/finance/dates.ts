@@ -1,29 +1,34 @@
 export const DAY = 86_400;
 
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
+/** Intl formatters are slow to construct, so they're cached per locale/zone/options. */
+function formatter(locale: string, timeZone: string, opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${timeZone}|${JSON.stringify(opts)}`;
+  let fmt = formatters.get(key);
+  if (!fmt) {
+    try {
+      fmt = new Intl.DateTimeFormat(locale, { timeZone, ...opts });
+    } catch {
+      fmt = new Intl.DateTimeFormat(locale, { timeZone: "UTC", ...opts }); // unknown zone: fall back to UTC
+    }
+    formatters.set(key, fmt);
+  }
+  return fmt;
+}
+
+const DATE_PARTS = { year: "numeric", month: "2-digit", day: "2-digit" } as const;
+
 /** `YYYY-MM-DD` for a unix timestamp in the given IANA timezone. */
 export function localDateString(unixSeconds: number, timeZone: string): string {
-  let fmt: Intl.DateTimeFormat;
-  try {
-    fmt = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
-  } catch {
-    fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" });
-  }
-  return fmt.format(new Date(unixSeconds * 1000));
+  return formatter("en-CA", timeZone, DATE_PARTS).format(new Date(unixSeconds * 1000));
 }
 
 export const utcDateString = (unixSeconds: number) => localDateString(unixSeconds, "UTC");
 
-function safeFormatter(timeZone: string, opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
-  try {
-    return new Intl.DateTimeFormat("en-US", { timeZone, ...opts });
-  } catch {
-    return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", ...opts });
-  }
-}
-
 /** Seconds the zone is ahead of UTC at the given instant (negative west of Greenwich). */
 export function tzOffsetSeconds(unixSeconds: number, timeZone: string): number {
-  const parts = safeFormatter(timeZone, {
+  const parts = formatter("en-US", timeZone, {
     hourCycle: "h23",
     year: "numeric",
     month: "numeric",
@@ -73,4 +78,19 @@ export function monthRange(month: string, timeZone: string): { start: number; en
 
 export function currentMonth(unixSeconds: number, timeZone: string): string {
   return localDateString(unixSeconds, timeZone).slice(0, 7);
+}
+
+/** Number of days in a `YYYY-MM` month. */
+export function daysInMonth(month: string): number {
+  const m = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!m) throw new Error(`Invalid month: ${month}`);
+  return new Date(Date.UTC(+m[1], +m[2], 0)).getUTCDate();
+}
+
+/** The `YYYY-MM` that is `delta` months from `month` (negative = earlier). */
+export function shiftMonth(month: string, delta: number): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!m) throw new Error(`Invalid month: ${month}`);
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
