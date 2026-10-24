@@ -25,6 +25,8 @@ export interface ParsedAccount {
   balanceDate: number | null;
   /** `undefined` when the response carried no transaction list (e.g. balances-only). */
   transactions: ParsedTransaction[] | undefined;
+  /** Transactions dropped because their amount couldn't be parsed. */
+  skippedTransactions: number;
 }
 
 export function parseTransaction(t: SfTransaction): ParsedTransaction {
@@ -43,8 +45,18 @@ export function parseTransaction(t: SfTransaction): ParsedTransaction {
   };
 }
 
+/** Throws if the balance can't be parsed; individual bad transactions are skipped and counted. */
 export function parseAccount(a: SfAccount): ParsedAccount {
   const availableRaw = a["available-balance"];
+  let skipped = 0;
+  const transactions = a.transactions?.flatMap((t) => {
+    try {
+      return [parseTransaction(t)];
+    } catch {
+      skipped++;
+      return [];
+    }
+  });
   return {
     id: a.id,
     orgName: a.org.name?.trim() || a.org.domain?.trim() || "Unknown institution",
@@ -55,6 +67,7 @@ export function parseAccount(a: SfAccount): ParsedAccount {
     balanceCents: parseCents(a.balance),
     availableCents: availableRaw == null || availableRaw === "" ? null : parseCents(availableRaw),
     balanceDate: a["balance-date"] ?? null,
-    transactions: a.transactions?.map(parseTransaction),
+    transactions,
+    skippedTransactions: skipped,
   };
 }

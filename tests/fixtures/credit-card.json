@@ -1,0 +1,62 @@
+{
+  "org": {
+    "domain": "firsttestbank.example",
+    "name": "First Test Bank",
+    "sfin-url": "https://bridge.simplefin.org/simplefin",
+    "url": "https://firsttestbank.example",
+    "id": "first-test-bank"
+  },
+  "id": "ACT-cc-2002",
+  "name": "Sapphire Credit Card",
+  "currency": "USD",
+  "balance": "-1234.56",
+  "balance-date": 1792842300,
+  "transactions": [
+    {
+      "id": "cc-001",
+      "posted": 1792659600,
+      "amount": "-64.20",
+      "description": "SQ *BLUE BOTTLE COFFEE SAN FRANCISCO CA"
+    },
+    {
+      "id": "cc-002",
+      "posted": 1792314000,
+      "amount": "-12.99",
+      "description": "NETFLIX.COM LOS GATOS CA",
+      "payee": "Netflix"
+    },
+    {
+      "id": "cc-003",
+      "posted": 1790240400,
+      "amount": "-12.99",
+      "description": "NETFLIX.COM LOS GATOS CA",
+      "payee": "Netflix"
+    },
+    {
+      "id": "cc-004",
+      "posted": 1792227600,
+      "amount": "-152.30",
+      "description": "AMAZON MKTPLACE PMTS AMZN.COM/BILL WA"
+    },
+    {
+      "id": "cc-005",
+      "posted": 1792058400,
+      "amount": "500.00",
+      "description": "PAYMENT THANK YOU - WEB"
+    },
+    {
+      "id": "cc-006",
+      "posted": 1791536400,
+      "amount": "-48.75",
+      "description": "SHELL OIL 57444 AUSTIN TX"
+    },
+    {
+      "id": "cc-p01",
+      "posted": 0,
+      "transacted_at": 1792836000,
+      "amount": "-23.50",
+      "description": "UBER *TRIP HELP.UBER.COM",
+      "pending": true
+    }
+  ]
+}

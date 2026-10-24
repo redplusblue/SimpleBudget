@@ -1,5 +1,5 @@
 import { like, lt, and } from "drizzle-orm";
-import type { Db } from "@/db/open";
+import type { DbLike } from "@/db/open";
 import { settings } from "@/db/schema";
 import { DAY, utcDateString } from "@/lib/finance/dates";
 import { deleteSetting, getSetting, setSetting } from "@/lib/settings";
@@ -19,16 +19,16 @@ const LAST_MANUAL_KEY = "last_manual_sync";
 
 // ── daily request budget ────────────────────────────────────────────────────
 
-export function requestsToday(db: Db, now: number): number {
+export function requestsToday(db: DbLike, now: number): number {
   return Number(getSetting(db, `${REQ_PREFIX}${utcDateString(now)}`) ?? 0) || 0;
 }
 
-export function requestsRemaining(db: Db, now: number): number {
+export function requestsRemaining(db: DbLike, now: number): number {
   return Math.max(0, DAILY_REQUEST_LIMIT - requestsToday(db, now));
 }
 
 /** Counts one HTTP attempt against today's quota (UTC day) and prunes older counters. */
-export function recordRequest(db: Db, now: number): void {
+export function recordRequest(db: DbLike, now: number): void {
   const today = utcDateString(now);
   setSetting(db, `${REQ_PREFIX}${today}`, String(requestsToday(db, now) + 1));
   db.delete(settings)
@@ -59,25 +59,25 @@ export function buildWindows(now: number, days: number, maxDays = MAX_WINDOW_DAY
 // ── lock ────────────────────────────────────────────────────────────────────
 
 /** Takes the single-sync lock unless a live one exists. The check-and-set is one transaction. */
-export function acquireSyncLock(db: Db, now: number, ttl = LOCK_TTL_SECONDS): boolean {
+export function acquireSyncLock(db: DbLike, now: number, ttl = LOCK_TTL_SECONDS): boolean {
   return db.transaction((tx) => {
-    const held = Number(getSetting(tx as unknown as Db, LOCK_KEY) ?? 0);
+    const held = Number(getSetting(tx, LOCK_KEY) ?? 0);
     if (held > now) return false;
-    setSetting(tx as unknown as Db, LOCK_KEY, String(now + ttl));
+    setSetting(tx, LOCK_KEY, String(now + ttl));
     return true;
   });
 }
 
-export function renewSyncLock(db: Db, now: number, ttl = LOCK_TTL_SECONDS): void {
+export function renewSyncLock(db: DbLike, now: number, ttl = LOCK_TTL_SECONDS): void {
   setSetting(db, LOCK_KEY, String(now + ttl));
 }
 
-export function releaseSyncLock(db: Db): void {
+export function releaseSyncLock(db: DbLike): void {
   deleteSetting(db, LOCK_KEY);
   deleteSetting(db, PROGRESS_KEY);
 }
 
-export function isSyncRunning(db: Db, now: number): boolean {
+export function isSyncRunning(db: DbLike, now: number): boolean {
   return Number(getSetting(db, LOCK_KEY) ?? 0) > now;
 }
 
@@ -88,11 +88,11 @@ export interface SyncProgress {
   total: number;
 }
 
-export function setSyncProgress(db: Db, progress: SyncProgress): void {
+export function setSyncProgress(db: DbLike, progress: SyncProgress): void {
   setSetting(db, PROGRESS_KEY, JSON.stringify(progress));
 }
 
-export function getSyncProgress(db: Db): SyncProgress | null {
+export function getSyncProgress(db: DbLike): SyncProgress | null {
   const raw = getSetting(db, PROGRESS_KEY);
   if (!raw) return null;
   try {
@@ -105,11 +105,11 @@ export function getSyncProgress(db: Db): SyncProgress | null {
 // ── manual sync throttle ────────────────────────────────────────────────────
 
 /** Seconds until another manual incremental sync is allowed (0 = allowed now). */
-export function manualSyncWaitSeconds(db: Db, now: number): number {
+export function manualSyncWaitSeconds(db: DbLike, now: number): number {
   const last = Number(getSetting(db, LAST_MANUAL_KEY) ?? 0);
   return Math.max(0, last + MANUAL_SYNC_COOLDOWN_SECONDS - now);
 }
 
-export function markManualSync(db: Db, now: number): void {
+export function markManualSync(db: DbLike, now: number): void {
   setSetting(db, LAST_MANUAL_KEY, String(now));
 }

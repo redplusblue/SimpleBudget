@@ -1,0 +1,34 @@
+{
+  "org": {
+    "domain": "firsttestbank.example",
+    "name": "First Test Bank",
+    "sfin-url": "https://bridge.simplefin.org/simplefin",
+    "url": "https://firsttestbank.example",
+    "id": "first-test-bank"
+  },
+  "id": "ACT-sav-3003",
+  "name": "High Yield Savings",
+  "currency": "USD",
+  "balance": "10300.00",
+  "balance-date": 1792842000,
+  "transactions": [
+    {
+      "id": "sav-001",
+      "posted": 1791104400,
+      "amount": "300.00",
+      "description": "ONLINE BANKING TRANSFER FROM CHK 5678"
+    },
+    {
+      "id": "sav-002",
+      "posted": 1792584000,
+      "amount": "4.12",
+      "description": "INTEREST PAID"
+    },
+    {
+      "id": "sav-003",
+      "posted": 1789992000,
+      "amount": "3.97",
+      "description": "INTEREST PAID"
+    }
+  ]
+}

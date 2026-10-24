@@ -20,7 +20,7 @@ const accessUrlKey = (id: number) => `${SETTING_KEYS.accessUrlPrefix}${id}`;
 export function addConnection(db: Db, accessUrl: string): number {
   return db.transaction((tx) => {
     const row = tx.insert(connections).values({ orgName: "SimpleFIN" }).returning({ id: connections.id }).get();
-    setSetting(tx as unknown as Db, accessUrlKey(row.id), encrypt(accessUrl));
+    setSetting(tx, accessUrlKey(row.id), encrypt(accessUrl));
     return row.id;
   });
 }
@@ -61,7 +61,7 @@ export function removeConnection(db: Db, id: number, opts: { deleteData: boolean
       tx.update(accounts).set({ connectionId: null }).where(eq(accounts.connectionId, id)).run();
     }
     tx.delete(connections).where(eq(connections.id, id)).run();
-    deleteSetting(tx as unknown as Db, accessUrlKey(id));
+    deleteSetting(tx, accessUrlKey(id));
     return true;
   });
 }

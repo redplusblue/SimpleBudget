@@ -3,7 +3,7 @@ import { buildAccountsRequest, fetchAccounts, SimpleFinError } from "@/lib/simpl
 
 const ACCESS = "https://us%40er:p%3Ass@bridge.simplefin.org/simplefin";
 const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
-const sleep = vi.fn(async (_ms: number) => {});
+const sleep = vi.fn<(ms: number) => Promise<void>>(async () => {});
 
 describe("buildAccountsRequest", () => {
   it("moves credentials into a Basic header and builds the query", () => {

@@ -1,0 +1,98 @@
+{
+  "org": {
+    "domain": "firsttestbank.example",
+    "name": "First Test Bank",
+    "sfin-url": "https://bridge.simplefin.org/simplefin",
+    "url": "https://firsttestbank.example",
+    "id": "first-test-bank"
+  },
+  "id": "ACT-chk-1001",
+  "name": "Total Checking",
+  "currency": "USD",
+  "balance": "4823.17",
+  "available-balance": "4623.17",
+  "balance-date": 1792842600,
+  "transactions": [
+    {
+      "id": "chk-001",
+      "posted": 1792576800,
+      "amount": "2450.00",
+      "description": "ACME CORP PAYROLL DIRECT DEP",
+      "payee": "ACME Corp"
+    },
+    {
+      "id": "chk-002",
+      "posted": 1791367200,
+      "amount": "2450.00",
+      "description": "ACME CORP PAYROLL DIRECT DEP",
+      "payee": "ACME Corp"
+    },
+    {
+      "id": "chk-003",
+      "posted": 1790157600,
+      "amount": "2450.00",
+      "description": "ACME CORP PAYROLL DIRECT DEP",
+      "payee": "ACME Corp"
+    },
+    {
+      "id": "chk-004",
+      "posted": 1788948000,
+      "amount": "2450.00",
+      "description": "ACME CORP PAYROLL DIRECT DEP",
+      "payee": "ACME Corp"
+    },
+    {
+      "id": "chk-005",
+      "posted": 1792393200,
+      "amount": "-1500.00",
+      "description": "ZELLE TO LANDLORD JANE",
+      "payee": "Landlord"
+    },
+    {
+      "id": "chk-006",
+      "posted": 1789801200,
+      "amount": "-1500.00",
+      "description": "ZELLE TO LANDLORD JANE",
+      "payee": "Landlord"
+    },
+    {
+      "id": "chk-007",
+      "posted": 1791968400,
+      "amount": "-500.00",
+      "description": "CHASE CREDIT CRD AUTOPAY"
+    },
+    {
+      "id": "chk-008",
+      "posted": 1791100800,
+      "amount": "-300.00",
+      "description": "ONLINE BANKING TRANSFER TO SAV 1234"
+    },
+    {
+      "id": "chk-009",
+      "posted": 1792130400,
+      "amount": "-87.45",
+      "description": "TRADER JOE'S #552 AUSTIN TX",
+      "payee": "Trader Joe's"
+    },
+    {
+      "id": "chk-010",
+      "posted": 1791784800,
+      "amount": "-6.50",
+      "description": "MONTHLY MAINTENANCE FEE"
+    },
+    {
+      "id": "chk-011",
+      "posted": 1791630000,
+      "amount": "-120.00",
+      "description": "CITY UTILITIES BILL PAY"
+    },
+    {
+      "id": "chk-p01",
+      "posted": 0,
+      "transacted_at": 1792756800,
+      "amount": "-42.18",
+      "description": "WHOLE FOODS #123",
+      "pending": true
+    }
+  ]
+}
