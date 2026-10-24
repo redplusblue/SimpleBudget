@@ -17,6 +17,8 @@ import { localDateString } from "../lib/finance/dates";
 
 const DAY = 86_400;
 const TARGET_TXNS = 10_000;
+/** Scales merchant prices down so a month of ~14 purchases a day still fits a plausible income. */
+const SPEND_SCALE = 0.3;
 
 /** Small deterministic PRNG so the dataset is identical on every run. */
 function mulberry32(seed: number) {
@@ -104,6 +106,8 @@ async function main() {
   type NewTxn = typeof transactions.$inferInsert;
   const byAccount: Record<string, NewTxn[]> = { "fake-checking": [], "fake-credit": [], "fake-savings": [] };
   let n = 0;
+  /** Card purchases since the last autopay; the autopay settles exactly this, like a real statement balance. */
+  let cardOwed = 0;
   const make = (accountId: string, ts: number, amount: number, description: string, extra: Partial<NewTxn> = {}) => {
     const row: NewTxn = {
       accountId,
@@ -117,6 +121,7 @@ async function main() {
       ...extra,
     };
     byAccount[accountId].push(row);
+    if (accountId === "fake-credit" && amount < 0) cardOwed -= amount;
     return row;
   };
 
@@ -136,7 +141,7 @@ async function main() {
     const at = (h: number) => dayStart + Math.floor(h * 3600);
 
     if (d % 14 === 3)
-      make("fake-checking", at(6), cents(2450), "ACME CORP PAYROLL DIRECT DEP", {
+      make("fake-checking", at(6), cents(4000), "ACME CORP PAYROLL DIRECT DEP", {
         categoryId: cats.get("Income"),
         payee: "ACME Corp",
       });
@@ -153,9 +158,10 @@ async function main() {
       make("fake-checking", at(8), -6_00, "MONTHLY MAINTENANCE FEE", { categoryId: cats.get("Fees") });
     if (dom === 20) {
       // Card payment from checking, mirrored on the card, flagged as a paired transfer later.
-      const amt = cents(between(900, 1600));
+      const amt = Math.max(cardOwed, 100);
       make("fake-checking", at(10), -amt, "CHASE CREDIT CRD AUTOPAY", { isTransfer: true });
       make("fake-credit", at(14), amt, "PAYMENT THANK YOU - WEB", { isTransfer: true });
+      cardOwed = 0;
     }
     if (dom === 25) {
       const amt = cents(between(200, 600));
@@ -189,7 +195,7 @@ async function main() {
     const perDay = Math.round(between(dow === 0 || dow === 6 ? 11 : 9, dow === 0 || dow === 6 ? 21 : 17));
     for (let i = 0; i < perDay; i++) {
       const m = pickMerchant();
-      const amt = -cents(between(m.min, m.max));
+      const amt = -Math.max(cents(between(m.min, m.max) * SPEND_SCALE), 50);
       const onCard = rand() < 0.72;
       const categorized = rand() < 0.7;
       make(
@@ -272,6 +278,33 @@ async function main() {
           .values({ accountId: id, date: localDateString(dayEnd, "UTC"), balanceCents: balance })
           .onConflictDoNothing()
           .run();
+      }
+    }
+
+    // Investment accounts have no transactions, only balances that drift upward over time. The brokerage was
+    // added 45 days ago, so net worth history must not dip to zero before it existed.
+    for (const [id, name, balance, history] of [
+      ["fake-ira", "Roth IRA", cents(42_150), 120],
+      ["fake-brokerage", "Brokerage", cents(8_420.55), 45],
+    ] as const) {
+      tx.insert(accounts)
+        .values({
+          id,
+          orgName: "Fake Brokerage",
+          name,
+          type: "investment",
+          balanceCents: balance,
+          balanceDate: now,
+          sortOrder: order++,
+        })
+        .run();
+      let value = balance;
+      for (let back = 0; back < history; back++) {
+        tx.insert(balanceSnapshots)
+          .values({ accountId: id, date: localDateString(now - back * DAY, "UTC"), balanceCents: Math.round(value) })
+          .onConflictDoNothing()
+          .run();
+        value /= 1 + between(-0.004, 0.0065); // walking backwards: drift up going forward
       }
     }
 
