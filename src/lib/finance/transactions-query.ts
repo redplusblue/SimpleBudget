@@ -251,6 +251,19 @@ function applyRunningBalance(db: DbLike, accountId: string, rows: TransactionRow
   }
 }
 
+/** Rows for specific ids, in the order given (missing ids are skipped). No running balances. */
+export function getTransactionRows(db: DbLike, ids: number[]): TransactionRow[] {
+  if (ids.length === 0) return [];
+  const selected = db
+    .select(rowSelect)
+    .from(transactions)
+    .innerJoin(accounts, eq(accounts.id, transactions.accountId))
+    .where(inArray(transactions.id, ids))
+    .all() as SelectedRow[];
+  const byId = new Map(toRows(db, selected).map((r) => [r.id, r]));
+  return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
 export function getTransactionDetail(db: DbLike, id: number): TransactionDetail | undefined {
   const selected = db
     .select({ ...rowSelect, rawJson: transactions.rawJson, importedAt: transactions.importedAt })
