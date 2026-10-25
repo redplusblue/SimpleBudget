@@ -51,6 +51,10 @@ export interface TransactionFilters {
   maxAmountCents?: number;
   type?: TransactionTypeFilter;
   status?: TransactionStatusFilter;
+  /** `transactions.merchant_key` (e.g. "traderjoes"): every transaction from one cleaned-up merchant. */
+  merchant?: string;
+  /** Display name for the merchant chip; the page address carries it, the API ignores it. */
+  merchantName?: string;
 }
 
 export interface TransactionPage {

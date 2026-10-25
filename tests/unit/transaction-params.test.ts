@@ -87,6 +87,28 @@ describe("filter params", () => {
   });
 });
 
+describe("merchant filter params", () => {
+  it("parses the key and its display name, and round-trips", () => {
+    const res = parseFilterParams(new URLSearchParams("merchant=traderjoes&mname=Trader%20Joe%27s"));
+    expect(res).toMatchObject({ ok: true, filters: { merchant: "traderjoes", merchantName: "Trader Joe's" } });
+    const sp = filtersToSearchParams({ merchant: "traderjoes", merchantName: "Trader Joe's" });
+    expect(sp.get("merchant")).toBe("traderjoes");
+    expect(filtersFromSearchParams(sp)).toMatchObject({ merchant: "traderjoes", merchantName: "Trader Joe's" });
+  });
+  it("ignores a display name without a merchant and rejects bad keys", () => {
+    expect(parseFilterParams(new URLSearchParams("mname=Orphan"))).toMatchObject({
+      ok: true,
+      filters: { merchant: undefined, merchantName: undefined },
+    });
+    expect(parseFilterParams(new URLSearchParams("merchant=Has Spaces")).ok).toBe(false);
+    expect(parseFilterParams(new URLSearchParams("merchant=a'b")).ok).toBe(false);
+    expect(filtersToSearchParams({ merchantName: "x" }).toString()).toBe("");
+  });
+  it("counts a merchant as one filter (its label isn't a second one)", () => {
+    expect(countActiveFilters({ merchant: "traderjoes", merchantName: "Trader Joe's" })).toBe(1);
+  });
+});
+
 describe("patch schemas", () => {
   it("accepts overlay edits and rejects unknown or empty patches", () => {
     expect(transactionPatchSchema.safeParse({ categoryId: null, notes: "x", tagIds: [1, 2] }).success).toBe(true);

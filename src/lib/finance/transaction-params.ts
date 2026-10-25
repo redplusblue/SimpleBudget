@@ -27,6 +27,14 @@ export const filterQuerySchema = z.object({
   max: z.preprocess(emptyToUndef, dollars.optional()),
   type: z.preprocess(emptyToUndef, z.enum(["expense", "income", "transfer"]).optional()),
   status: z.preprocess(emptyToUndef, z.enum(["pending", "unreviewed", "reviewed"]).optional()),
+  merchant: z.preprocess(
+    emptyToUndef,
+    z
+      .string()
+      .regex(/^[a-z0-9]{1,100}$/, "Invalid merchant")
+      .optional(),
+  ),
+  mname: z.preprocess(emptyToUndef, z.string().trim().max(120).optional()),
 });
 
 export const pagingQuerySchema = z.object({
@@ -57,6 +65,8 @@ export function parseFilterParams(params: Params) {
     maxAmountCents: v.max,
     type: v.type,
     status: v.status,
+    merchant: v.merchant,
+    merchantName: v.merchant ? v.mname : undefined,
   };
   return { ok: true as const, filters };
 }
@@ -87,11 +97,14 @@ export function filtersToSearchParams(f: TransactionFilters): URLSearchParams {
   set("max", f.maxAmountCents !== undefined ? centsToDecimalString(f.maxAmountCents) : undefined);
   set("type", f.type);
   set("status", f.status);
+  set("merchant", f.merchant);
+  if (f.merchant) set("mname", f.merchantName);
   return sp;
 }
 
 export function countActiveFilters(f: TransactionFilters, ignoreAccount = true): number {
-  const { accountId, ...rest } = f;
+  const { accountId, merchantName: _label, ...rest } = f;
+  void _label;
   const entries = Object.entries(ignoreAccount ? rest : { accountId, ...rest });
   // from/to count as one "date" filter and min/max as one "amount" filter.
   const keys = new Set(

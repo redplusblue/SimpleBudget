@@ -213,6 +213,18 @@ describe("filters", () => {
     expect(queryTransactions(db, f, { timeZone: TZ }).total).toBe(2);
   });
 
+  it("filters by merchant key", () => {
+    const { db, rows } = fixture();
+    const other = addTxn(db, "chk", {
+      description: "BLUE BOTTLE COFFEE #9 SAN FRANCISCO CA",
+      posted: day("2026-03-06"),
+    });
+    expect(ids(db, { merchant: "bluebottlecoffee" })).toEqual(new Set([rows.coffee.id, other.id]));
+    expect(ids(db, { merchant: "nosuchmerchant" }).size).toBe(0);
+    // the override renames a transaction's merchant
+    expect(ids(db, { merchant: "groceriesco" })).toEqual(new Set([rows.grocery.id]));
+  });
+
   it("attaches tags and the display payee", () => {
     const { db, rows } = fixture();
     const page = queryTransactions(db, { q: "coffee" }, { timeZone: TZ });

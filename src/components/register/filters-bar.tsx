@@ -51,6 +51,25 @@ export function FiltersBar({ filters, onChange, onClear, scopedToAccount }: Prop
         </Button>
       </div>
 
+      {filters.merchant && (
+        <div className="flex">
+          <span
+            data-testid="merchant-chip"
+            className="inline-flex min-h-8 max-w-full items-center gap-1 rounded-full bg-surface-2 py-1 pr-1 pl-3 text-sm"
+          >
+            <span className="truncate">Merchant: {filters.merchantName || filters.merchant}</span>
+            <button
+              type="button"
+              aria-label="Remove merchant filter"
+              className="grid size-6 place-items-center rounded-full text-muted-foreground hover:bg-border hover:text-foreground"
+              onClick={() => onChange({ merchant: undefined, merchantName: undefined })}
+            >
+              <X className="size-3.5" />
+            </button>
+          </span>
+        </div>
+      )}
+
       <div className="hidden flex-wrap items-center gap-2 md:flex">
         <FilterControls filters={filters} onChange={onChange} scopedToAccount={scopedToAccount} layout="inline" />
         {active > 0 && (

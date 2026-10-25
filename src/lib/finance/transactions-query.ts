@@ -63,6 +63,7 @@ export function buildConditions(filters: TransactionFilters, timeZone: string): 
   if (filters.to && isDateString(filters.to)) {
     c.push(sql`${effectiveDateSql} < ${zonedDayStart(addDaysToDate(filters.to, 1), timeZone)}`);
   }
+  if (filters.merchant) c.push(eq(transactions.merchantKey, filters.merchant));
   if (filters.categoryId === "none") c.push(isNull(transactions.categoryId));
   else if (typeof filters.categoryId === "number") c.push(eq(transactions.categoryId, filters.categoryId));
   if (filters.tagId !== undefined) {
