@@ -16,6 +16,7 @@ const ITEMS = [
   { href: "/settings/import", label: "Import" },
   { href: "/settings/data", label: "Export" },
   { href: "/settings/account", label: "Account" },
+  { href: "/settings/about", label: "About" },
 ];
 
 const TARGETS_TAB = { href: "/settings/targets", label: "Targets" };

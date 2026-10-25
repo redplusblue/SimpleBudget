@@ -2,6 +2,7 @@ import "server-only";
 import cron, { type ScheduledTask } from "node-cron";
 import { getDb } from "@/db/client";
 import { connections } from "@/db/schema";
+import { logger } from "@/lib/logger";
 import { getSetupState } from "@/lib/setup";
 import { getSchedule, getSyncStatus, SCHEDULE_OPTIONS, type ScheduleKey } from "./status";
 import { recordRefusedRun, runSync } from "./sync";
@@ -27,8 +28,9 @@ async function tick() {
     }
     const res = await runSync(db, { mode: "incremental", trigger: "scheduled" });
     if (!res.ok && res.reason === "budget") recordRefusedRun(db, res);
-  } catch {
+  } catch (err) {
     // A failed tick must never take the server down; the next one retries.
+    logger.error({ err }, "scheduled sync failed");
   }
 }
 

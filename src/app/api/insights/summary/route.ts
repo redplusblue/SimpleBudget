@@ -3,6 +3,7 @@ import { getDb } from "@/db/client";
 import { requireApiAuth } from "@/lib/auth";
 import { getEnv } from "@/lib/env";
 import { currentMonth } from "@/lib/finance/dates";
+import { logger } from "@/lib/logger";
 import { getLlm } from "@/lib/llm";
 import { getAiConfig } from "@/lib/llm/config";
 import { generateSummary, getCachedSummary } from "@/lib/llm/narrative";
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
         );
         send({ type: "done", createdAt: result.createdAt });
       } catch (e) {
-        if (!(e instanceof LlmError)) console.error("summary failed", e);
+        if (!(e instanceof LlmError)) logger.error({ err: e }, "summary failed");
         send({ type: "error", message: e instanceof LlmError ? e.message : "Couldn't write the summary." });
       } finally {
         controller.close();

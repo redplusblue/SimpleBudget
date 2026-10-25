@@ -54,6 +54,8 @@ describe("middleware", () => {
     "/api/export/backup",
     "/api/import/preview",
     "/api/import/commit",
+    "/api/about",
+    "/api/about/backup",
     "/api/targets",
     "/api/targets/1",
     "/api/recurring",

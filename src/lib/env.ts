@@ -7,6 +7,8 @@ const schema = z.object({
   TZ: z.string().min(1).default("UTC"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   /** Set to "true" when served over HTTPS so the session cookie is marked Secure. */
+  /** Where nightly backups go. Default: a `backups` folder next to the database. */
+  BACKUP_DIR: z.string().min(1).optional(),
   COOKIE_SECURE: z.enum(["true", "false"]).optional(),
 });
 

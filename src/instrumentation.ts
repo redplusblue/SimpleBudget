@@ -5,5 +5,7 @@ export async function register() {
     getDb();
     const { startScheduler } = await import("./lib/simplefin/scheduler");
     startScheduler();
+    const { startBackupScheduler } = await import("./lib/backup/scheduler");
+    startBackupScheduler();
   }
 }

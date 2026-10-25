@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { requireApiAuth } from "@/lib/auth";
 import { getEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
 import { getInsights } from "@/lib/insights";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export async function GET() {
   if (denied) return denied;
   const started = performance.now();
   const payload = getInsights(getDb(), { now: Math.floor(Date.now() / 1000), timeZone: getEnv().TZ }, (e) =>
-    console.error("insight generator failed", e),
+    logger.error({ err: e }, "insight generator failed"),
   );
   return NextResponse.json(payload, {
     headers: { "Server-Timing": `insights;dur=${(performance.now() - started).toFixed(1)}` },
