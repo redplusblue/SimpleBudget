@@ -24,3 +24,7 @@ export const incomeCondition: SQL = and(
   eq(transactions.isTransfer, false),
   eq(transactions.isExcluded, false),
 )!;
+
+/** True when the transaction has been split across categories (its own category is then empty). */
+export const hasSplitsSql: SQL = sql`EXISTS (SELECT 1 FROM transaction_splits sp WHERE sp.transaction_id = ${transactions.id})`;
+export const noSplitsSql: SQL = sql`NOT EXISTS (SELECT 1 FROM transaction_splits sp WHERE sp.transaction_id = ${transactions.id})`;

@@ -3,7 +3,8 @@ import type { DbLike } from "@/db/open";
 import { categories, transactions } from "@/db/schema";
 import { daysInMonth, localDateString, monthRange, shiftMonth } from "./dates";
 import type { CategoryBreakdown, CategorySlice, MonthGlance, SpendingChart, SpendingPoint } from "./dashboard-types";
-import { effectiveDateSql, expenseCondition, incomeCondition } from "./sql";
+import { splitSpendByCategory } from "./split-lines";
+import { effectiveDateSql, expenseCondition, incomeCondition, noSplitsSql } from "./sql";
 
 const UNCATEGORIZED_COLOR = "#6B7385";
 export const TOP_CATEGORIES = 6;
@@ -103,7 +104,8 @@ interface CategoryTotal {
 
 function categoryTotals(db: DbLike, month: string, timeZone: string): CategoryTotal[] {
   const { start, end } = monthRange(month, timeZone);
-  return db
+  const window = and(gte(effectiveDateSql, start), lt(effectiveDateSql, end));
+  const whole = db
     .select({
       id: transactions.categoryId,
       name: categories.name,
@@ -112,9 +114,32 @@ function categoryTotals(db: DbLike, month: string, timeZone: string): CategoryTo
     })
     .from(transactions)
     .leftJoin(categories, eq(categories.id, transactions.categoryId))
-    .where(and(expenseCondition, gte(effectiveDateSql, start), lt(effectiveDateSql, end)))
+    .where(and(expenseCondition, noSplitsSql, window))
     .groupBy(transactions.categoryId)
     .all();
+  // Split transactions count part by part, each in its own category.
+  const parts = splitSpendByCategory(db, window);
+  if (parts.size === 0) return whole;
+  const merged = new Map<number | null, CategoryTotal>(whole.map((c) => [c.id, { ...c }]));
+  const names = new Map(
+    db
+      .select({ id: categories.id, name: categories.name, color: categories.color })
+      .from(categories)
+      .all()
+      .map((c) => [c.id, c]),
+  );
+  for (const [id, cents] of parts) {
+    const existing = merged.get(id);
+    if (existing) existing.cents += cents;
+    else
+      merged.set(id, {
+        id,
+        name: id === null ? null : (names.get(id)?.name ?? null),
+        color: id === null ? null : (names.get(id)?.color ?? null),
+        cents,
+      });
+  }
+  return [...merged.values()];
 }
 
 /** Spending by category for a month, largest first, with change vs the previous month. */

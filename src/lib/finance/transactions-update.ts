@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
-import { categories, tags, transactionTags, transactions } from "@/db/schema";
+import { categories, tags, transactionSplits, transactionTags, transactions } from "@/db/schema";
 import { unpairTransfer } from "./transfers";
 
 export class UpdateError extends Error {
@@ -66,7 +66,11 @@ export function updateTransaction(db: DbLike, id: number, patch: TransactionPatc
     const tagIds = patch.tagIds ? assertTags(tx, patch.tagIds) : undefined;
 
     const set: Partial<typeof transactions.$inferInsert> = {};
-    if (patch.categoryId !== undefined) set.categoryId = patch.categoryId;
+    if (patch.categoryId !== undefined) {
+      set.categoryId = patch.categoryId;
+      // Choosing a single category replaces any split.
+      tx.delete(transactionSplits).where(eq(transactionSplits.transactionId, id)).run();
+    }
     if (patch.notes !== undefined) set.notes = blankToNull(patch.notes);
     if (patch.payeeOverride !== undefined) set.payeeOverride = blankToNull(patch.payeeOverride);
     if (patch.isExcluded !== undefined) set.isExcluded = patch.isExcluded;
@@ -119,7 +123,10 @@ export function bulkUpdateTransactions(db: DbLike, ids: number[], patch: BulkPat
     if (existing.length === 0) return 0;
 
     const set: Partial<typeof transactions.$inferInsert> = {};
-    if (patch.categoryId !== undefined) set.categoryId = patch.categoryId;
+    if (patch.categoryId !== undefined) {
+      set.categoryId = patch.categoryId;
+      tx.delete(transactionSplits).where(inArray(transactionSplits.transactionId, existing)).run();
+    }
     if (patch.isExcluded !== undefined) set.isExcluded = patch.isExcluded;
     if (patch.isReviewed !== undefined) set.isReviewed = patch.isReviewed;
     if (Object.keys(set).length || add.length || remove.length) {

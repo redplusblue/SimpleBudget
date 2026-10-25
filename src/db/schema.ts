@@ -41,6 +41,8 @@ export const accounts = sqliteTable("accounts", {
   creditLimitCents: integer("credit_limit_cents"),
   /** Alert when this account's balance falls below this many cents. Optional. */
   lowBalanceCents: integer("low_balance_cents"),
+  /** Offline account (e.g. cash) the user maintains by hand. Sync never touches it. */
+  isManual: integer("is_manual", { mode: "boolean" }).notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: integer("created_at").notNull().default(nowSeconds),
   updatedAt: integer("updated_at").notNull().default(nowSeconds),
@@ -80,6 +82,9 @@ export const tags = sqliteTable(
   (t) => [uniqueIndex("tags_name_unique").on(t.name)],
 );
 
+export const TRANSACTION_SOURCES = ["simplefin", "import", "manual"] as const;
+export type TransactionSource = (typeof TRANSACTION_SOURCES)[number];
+
 export const transactions = sqliteTable(
   "transactions",
   {
@@ -109,6 +114,8 @@ export const transactions = sqliteTable(
     transferPairId: integer("transfer_pair_id"),
     isExcluded: integer("is_excluded", { mode: "boolean" }).notNull().default(false),
     isReviewed: integer("is_reviewed", { mode: "boolean" }).notNull().default(false),
+    /** Where the row came from: the bank sync, an import file, or typed in by hand. */
+    source: text("source", { enum: TRANSACTION_SOURCES }).notNull().default("simplefin"),
     importedAt: integer("imported_at").notNull().default(nowSeconds),
     updatedAt: integer("updated_at").notNull().default(nowSeconds),
   },
@@ -118,6 +125,25 @@ export const transactions = sqliteTable(
     index("transactions_account_posted_idx").on(t.accountId, t.posted),
     index("transactions_category_idx").on(t.categoryId),
     index("transactions_merchant_idx").on(t.merchantKey),
+  ],
+);
+
+/** One part of a split transaction. A transaction's splits always add up to its amount. */
+export const transactionSplits = sqliteTable(
+  "transaction_splits",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    transactionId: integer("transaction_id")
+      .notNull()
+      .references(() => transactions.id, { onDelete: "cascade" }),
+    categoryId: integer("category_id").references(() => categories.id, { onDelete: "set null" }),
+    /** Same sign as the parent transaction. */
+    amountCents: integer("amount_cents").notNull(),
+    notes: text("notes"),
+  },
+  (t) => [
+    index("transaction_splits_txn_idx").on(t.transactionId),
+    index("transaction_splits_category_idx").on(t.categoryId),
   ],
 );
 

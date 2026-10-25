@@ -2,7 +2,8 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
 import { budgets, categories, tags, transactionTags, transactions } from "@/db/schema";
 import { daysInMonth, localDateString, monthRange } from "./dates";
-import { effectiveDateSql, expenseCondition } from "./sql";
+import { splitSpendByCategory } from "./split-lines";
+import { effectiveDateSql, expenseCondition, noSplitsSql } from "./sql";
 import {
   MIN_DAYS_FOR_PROJECTION,
   targetInputSchema,
@@ -162,10 +163,16 @@ function spentBySubject(db: DbLike, month: string, timeZone: string, categoryIds
     const rows = db
       .select({ id: transactions.categoryId, cents: sql<number>`-sum(${transactions.amountCents})` })
       .from(transactions)
-      .where(and(window, inArray(transactions.categoryId, categoryIds)))
+      .where(and(window, noSplitsSql, inArray(transactions.categoryId, categoryIds)))
       .groupBy(transactions.categoryId)
       .all();
     for (const r of rows) if (r.id !== null) byCategory.set(r.id, r.cents);
+    // Split transactions count part by part.
+    for (const [id, cents] of splitSpendByCategory(
+      db,
+      and(sql`${effectiveDateSql} >= ${start}`, sql`${effectiveDateSql} < ${end}`),
+    ))
+      if (id !== null && categoryIds.includes(id)) byCategory.set(id, (byCategory.get(id) ?? 0) + cents);
   }
   if (tagIds.length) {
     const rows = db

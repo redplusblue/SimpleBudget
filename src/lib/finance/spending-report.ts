@@ -12,6 +12,7 @@ import {
   zonedDayStart,
 } from "./dates";
 import { normalizePayee } from "./payee";
+import { splitExpenseLines, type SplitLine } from "./split-lines";
 import { effectiveDateSql, expenseCondition, incomeCondition } from "./sql";
 import type {
   AccountBreakdownRow,
@@ -177,23 +178,34 @@ export function getSpendingReport(db: DbLike, input: RangeInput, now: number, ti
   const monthCat = new Map<string, Map<number | null, number>>();
   let largest: { id: number; cents: number } | null = null;
 
+  // A split purchase counts part by part in the category views; everything else about it (totals, merchant, account, day)
+  // still uses the whole purchase.
+  const splitsByTxn = new Map<number, SplitLine[]>();
+  for (const l of splitExpenseLines(db, inWindow)) {
+    const list = splitsByTxn.get(l.transactionId);
+    if (list) list.push(l);
+    else splitsByTxn.set(l.transactionId, [l]);
+  }
+
   for (const r of rows) {
     const spend = -r.cents;
+    const lines = splitsByTxn.get(r.id) ?? [{ transactionId: r.id, categoryId: r.categoryId, cents: spend }];
     const date = localDateString(r.at, timeZone);
     const month = date.slice(0, 7);
-    add(monthCat.get(month) ?? monthCat.set(month, new Map()).get(month)!, r.categoryId, spend);
+    for (const l of lines)
+      add(monthCat.get(month) ?? monthCat.set(month, new Map()).get(month)!, l.categoryId, l.cents);
 
     if (r.at >= range.start && r.at < range.end) {
       cur.spent += spend;
       cur.count++;
-      bump(cur.cat, r.categoryId, spend);
+      for (const l of lines) bump(cur.cat, l.categoryId, l.cents);
       bump(cur.acct, r.accountId, spend);
       bump(cur.merchant, r.merchant ?? "unknown", spend);
       add(cur.day, date, spend);
       if (!largest || spend > largest.cents) largest = { id: r.id, cents: spend };
     } else if (r.at >= range.prevStart && r.at < range.prevEnd) {
       prevSpent += spend;
-      add(prevCat, r.categoryId, spend);
+      for (const l of lines) add(prevCat, l.categoryId, l.cents);
     }
   }
 

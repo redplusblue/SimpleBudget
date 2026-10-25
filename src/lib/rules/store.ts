@@ -1,6 +1,14 @@
 import { eq, inArray, sql } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
-import { accounts, categories, rules as rulesTable, tags, transactionTags, transactions } from "@/db/schema";
+import {
+  accounts,
+  categories,
+  rules as rulesTable,
+  tags,
+  transactionSplits,
+  transactionTags,
+  transactions,
+} from "@/db/schema";
 import { effectiveDateSql } from "@/lib/finance/sql";
 import { planChangesTarget, planForTransaction, type RulePlan, type RuleTarget } from "./engine";
 import {
@@ -216,6 +224,16 @@ function writePlan(db: DbLike, t: RuleTarget, plan: RulePlan, valid: { categorie
   if (plan.payeeOverride !== undefined) set.payeeOverride = plan.payeeOverride;
   if (plan.markTransfer) set.isTransfer = true;
   if (plan.exclude) set.isExcluded = true;
+  // A split purchase keeps its parts; a rule never swaps them for a single category.
+  if (
+    set.categoryId !== undefined &&
+    db
+      .select({ id: transactionSplits.id })
+      .from(transactionSplits)
+      .where(eq(transactionSplits.transactionId, t.id))
+      .get()
+  )
+    delete set.categoryId;
   if (Object.keys(set).length)
     db.update(transactions)
       .set({ ...set, updatedAt: sql`(unixepoch())` })

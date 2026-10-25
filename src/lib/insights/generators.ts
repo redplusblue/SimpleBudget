@@ -6,6 +6,7 @@ import { addDaysToDate, daysInMonth, monthRange, shiftMonth } from "@/lib/financ
 import { MIN_OCCURRENCES } from "@/lib/finance/recurring";
 import { getSpendingReport, merchantName } from "@/lib/finance/spending-report";
 import { dailySpending } from "@/lib/finance/spending";
+import { noSplitsSql } from "@/lib/finance/sql";
 import { median, meanAndStdDev, type InsightContext, type TxnRow } from "./data";
 import type { Insight } from "./types";
 
@@ -342,6 +343,7 @@ export const uncategorizedReminder: Generator = (ctx) => {
       .where(
         and(
           sql`${transactions.categoryId} IS NULL`,
+          noSplitsSql,
           eq(transactions.isTransfer, false),
           eq(transactions.isExcluded, false),
           sql`${transactions.amountCents} < 0`,

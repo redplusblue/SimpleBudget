@@ -3,7 +3,7 @@ import type { DbLike } from "@/db/open";
 import { accounts, tags, transactionTags, transactions } from "@/db/schema";
 import { parseCents } from "./cents";
 import { addDaysToDate, isDateString, zonedDayStart } from "./dates";
-import { effectiveDateSql, expenseCondition, incomeCondition } from "./sql";
+import { effectiveDateSql, expenseCondition, incomeCondition, noSplitsSql } from "./sql";
 import {
   displayPayee,
   type TagChip,
@@ -64,8 +64,23 @@ export function buildConditions(filters: TransactionFilters, timeZone: string): 
     c.push(sql`${effectiveDateSql} < ${zonedDayStart(addDaysToDate(filters.to, 1), timeZone)}`);
   }
   if (filters.merchant) c.push(eq(transactions.merchantKey, filters.merchant));
-  if (filters.categoryId === "none") c.push(isNull(transactions.categoryId));
-  else if (typeof filters.categoryId === "number") c.push(eq(transactions.categoryId, filters.categoryId));
+  if (filters.categoryId === "none")
+    c.push(
+      and(
+        isNull(transactions.categoryId),
+        or(
+          noSplitsSql,
+          sql`EXISTS (SELECT 1 FROM transaction_splits sp WHERE sp.transaction_id = ${transactions.id} AND sp.category_id IS NULL)`,
+        ),
+      )!,
+    );
+  else if (typeof filters.categoryId === "number")
+    c.push(
+      or(
+        eq(transactions.categoryId, filters.categoryId),
+        sql`EXISTS (SELECT 1 FROM transaction_splits sp WHERE sp.transaction_id = ${transactions.id} AND sp.category_id = ${filters.categoryId})`,
+      )!,
+    );
   if (filters.tagId !== undefined) {
     c.push(
       exists(
@@ -115,6 +130,7 @@ const rowSelect = {
   memo: transactions.memo,
   payeeOverride: transactions.payeeOverride,
   categoryId: transactions.categoryId,
+  splitCount: sql<number>`(SELECT count(*) FROM transaction_splits sp WHERE sp.transaction_id = ${transactions.id})`,
   notes: transactions.notes,
   isTransfer: transactions.isTransfer,
   transferPairId: transactions.transferPairId,

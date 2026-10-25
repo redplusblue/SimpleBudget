@@ -24,6 +24,8 @@ export interface TransactionRow {
   /** Override, else bank payee, else description. */
   displayPayee: string;
   categoryId: number | null;
+  /** More than zero when the purchase is split across categories (then `categoryId` is null). */
+  splitCount: number;
   notes: string | null;
   isTransfer: boolean;
   transferPairId: number | null;

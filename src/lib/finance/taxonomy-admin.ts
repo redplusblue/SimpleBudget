@@ -1,6 +1,6 @@
 import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
-import { budgets, categories, tags, transactionTags, transactions } from "@/db/schema";
+import { budgets, categories, tags, transactionSplits, transactionTags, transactions } from "@/db/schema";
 import { scrubCategoryFromRules, scrubTagFromRules } from "@/lib/rules/store";
 import {
   categoryInputSchema,
@@ -117,6 +117,7 @@ export function mergeCategories(db: DbLike, from: number, into: number): MergeRe
       .where(eq(transactions.categoryId, from))
       .returning({ id: transactions.id })
       .all().length;
+    tx.update(transactionSplits).set({ categoryId: into }).where(eq(transactionSplits.categoryId, from)).run();
     // Targets follow the merge; where the destination already has one for the same scope, its own target wins.
     let targetsDropped = 0;
     for (const b of tx.select().from(budgets).where(eq(budgets.categoryId, from)).all()) {
@@ -150,7 +151,8 @@ export function deleteCategory(db: DbLike, id: number): DeleteCategoryResult {
     if (!tx.select({ id: categories.id }).from(categories).where(eq(categories.id, id)).get())
       throw new TaxonomyError("not_found", "Category not found");
     const uncategorized =
-      tx.select({ n: count() }).from(transactions).where(eq(transactions.categoryId, id)).get()?.n ?? 0;
+      (tx.select({ n: count() }).from(transactions).where(eq(transactions.categoryId, id)).get()?.n ?? 0) +
+      (tx.select({ n: count() }).from(transactionSplits).where(eq(transactionSplits.categoryId, id)).get()?.n ?? 0);
     const rules = scrubCategoryFromRules(tx, id, null);
     tx.delete(categories).where(eq(categories.id, id)).run(); // FK: transactions -> null, budgets cascade
     return { uncategorized, rulesRewritten: rules.rewritten, rulesRemoved: rules.removed };
