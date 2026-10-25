@@ -96,3 +96,14 @@
 - **Dashboard "Upcoming"** shows detected charges due within 30 days (late ones first) and the monthly total; detection runs on each dashboard load (~55 ms with 10,000 transactions).
 - **12-month trend** stacks the top five categories (by 12-month spend) plus "everything else", with income as a line; the last month is always the whole month, even for a custom range that ends mid-month.
 - **Tests:** aggregates are checked against a hand-computed dataset (`tests/unit/spending-report.test.ts`); drill-downs are verified on 10,000 transactions by comparing the register's total with the report's count for a category, a merchant and a calendar day.
+
+## Phase 8: spending targets
+
+- **Integrity in the database.** Migration 0002 adds triggers (a target has exactly one of category or tag) and partial unique indexes (one recurring target, plus at most one per specific month, per subject). The API also checks, to return friendly 409 messages.
+- **Month override.** A target set for a specific month replaces the recurring one for that month; other months' targets are ignored.
+- **Thresholds.** Accent below 80%, amber from 80% through exactly 100%, red only above 100%. Status is also written as text, so color is never the only signal.
+- **Projection.** Month-end pace = spent x days in month / days elapsed, shown only for the current month from day 3 on. Past months show none.
+- **Spending page.** Targets appear only for single-month views, since limits are monthly; custom ranges show none.
+- **Optional by design.** No targets means no card and no nav tab. The Targets settings tab appears once one exists; the first is added from a category's or tag's "Set monthly target..." menu item.
+- **Category merge.** The destination keeps its own target on a scope clash; the merged category's duplicate is dropped (reported as `targetsDropped`).
+- **e2e.** The targets spec has its own 10k-transaction server (port 3103) because it adds transactions and targets; it inserts expenses straight into that test database, registering `payee_key()` on the connection.

@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const SEEDED_PORT = Number(process.env.E2E_PORT ?? 3100);
 const FRESH_PORT = SEEDED_PORT + 1;
 const BIG_PORT = SEEDED_PORT + 2;
+const TARGETS_PORT = SEEDED_PORT + 3;
 const SECRET = "e2e-secret-e2e-secret-e2e-secret-e2e"; // keep in sync with E2E_SECRET in tests/e2e/helpers.ts
 
 const server = (port: number, db: string) => ({
@@ -38,7 +39,7 @@ export default defineConfig({
     // Pre-configured install (password set, one connection, logged in via storageState).
     ...(["desktop", "mobile"] as const).map((name) => ({
       name,
-      testIgnore: /(fresh|big|screenshots)\.spec\.ts/,
+      testIgnore: /(fresh|big|screenshots|targets)\.spec\.ts/,
       use: {
         ...viewports[name],
         baseURL: `http://127.0.0.1:${SEEDED_PORT}`,
@@ -51,6 +52,12 @@ export default defineConfig({
       testMatch: /(big|screenshots)\.spec\.ts/,
       use: { ...viewports.desktop, baseURL: `http://127.0.0.1:${BIG_PORT}` },
     },
+    // Its own 10,000-transaction install, because the targets spec adds transactions and creates targets.
+    {
+      name: "targets",
+      testMatch: /targets\.spec\.ts/,
+      use: { ...viewports.desktop, baseURL: `http://127.0.0.1:${TARGETS_PORT}` },
+    },
     // Brand-new install, used only by the setup wizard spec.
     {
       name: "fresh-mobile",
@@ -62,5 +69,6 @@ export default defineConfig({
     server(SEEDED_PORT, "./data/e2e.db"),
     server(FRESH_PORT, "./data/e2e-fresh.db"),
     bigServer(BIG_PORT, "./data/e2e-big.db"),
+    bigServer(TARGETS_PORT, "./data/e2e-targets.db"),
   ],
 });

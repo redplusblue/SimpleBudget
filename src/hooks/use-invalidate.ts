@@ -16,6 +16,8 @@ export function useInvalidateTaxonomy() {
       ["rules"],
       ["transactions"],
       ["dashboard"],
+      ["targets"],
+      ["spending"],
     ]) {
       qc.invalidateQueries({ queryKey: key });
     }
