@@ -37,6 +37,10 @@ export const accounts = sqliteTable("accounts", {
   isClosed: integer("is_closed", { mode: "boolean" }).notNull().default(false),
   excludeFromNetWorth: integer("exclude_from_net_worth", { mode: "boolean" }).notNull().default(false),
   color: text("color"),
+  /** Credit limit (cents), for utilization insights. Optional; only meaningful for credit accounts. */
+  creditLimitCents: integer("credit_limit_cents"),
+  /** Alert when this account's balance falls below this many cents. Optional. */
+  lowBalanceCents: integer("low_balance_cents"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: integer("created_at").notNull().default(nowSeconds),
   updatedAt: integer("updated_at").notNull().default(nowSeconds),

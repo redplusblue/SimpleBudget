@@ -30,6 +30,8 @@ export interface AccountSummary {
   isClosed: boolean;
   excludeFromNetWorth: boolean;
   color: string | null;
+  creditLimitCents: number | null;
+  lowBalanceCents: number | null;
   /** Balance hasn't been refreshed by the bank in over 3 days. */
   stale: boolean;
 }
@@ -65,6 +67,8 @@ function toSummary(a: typeof accounts.$inferSelect, now: number): AccountSummary
     isHidden: a.isHidden,
     isClosed: a.isClosed,
     excludeFromNetWorth: a.excludeFromNetWorth,
+    creditLimitCents: a.creditLimitCents,
+    lowBalanceCents: a.lowBalanceCents,
     color: a.color,
     stale: a.balanceDate === null || now - a.balanceDate > STALE_AFTER_SECONDS,
   };

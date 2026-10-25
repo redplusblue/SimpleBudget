@@ -26,6 +26,8 @@ const patch = z
     isHidden: z.boolean(),
     isClosed: z.boolean(),
     excludeFromNetWorth: z.boolean(),
+    creditLimitCents: z.number().int().min(1).max(100_000_000_00).nullable(),
+    lowBalanceCents: z.number().int().min(0).max(100_000_000_00).nullable(),
     color: z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/)

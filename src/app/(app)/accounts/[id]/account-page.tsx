@@ -22,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { ACCOUNTS_OVERVIEW_KEY } from "@/hooks/use-lookups";
 import { CHART_PALETTE } from "@/db/palette";
 import { ApiError, fetchJson, jsonBody } from "@/lib/fetch-json";
+import { centsToDecimalString, parseCents } from "@/lib/finance/cents";
 import type { AccountDetail } from "@/lib/finance/accounts-overview";
 import { ACCOUNT_TYPES, ACCOUNT_TYPE_LABELS, type AccountType } from "@/lib/finance/account-types";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,8 @@ type AccountPatch = Partial<{
   isClosed: boolean;
   excludeFromNetWorth: boolean;
   color: string | null;
+  creditLimitCents: number | null;
+  lowBalanceCents: number | null;
 }>;
 
 const accountKey = (id: string) => ["account", id] as const;
@@ -312,6 +315,9 @@ function AccountSettings({
   const [hidden, setHidden] = useState(a.isHidden);
   const [closed, setClosed] = useState(a.isClosed);
   const [excluded, setExcluded] = useState(a.excludeFromNetWorth);
+  const [limit, setLimit] = useState(a.creditLimitCents === null ? "" : centsToDecimalString(a.creditLimitCents));
+  const [low, setLow] = useState(a.lowBalanceCents === null ? "" : centsToDecimalString(a.lowBalanceCents));
+  const [thresholdError, setThresholdError] = useState<string | null>(null);
 
   // Start from the saved values every time the dialog opens.
   useEffect(() => {
@@ -322,6 +328,9 @@ function AccountSettings({
       setHidden(a.isHidden);
       setClosed(a.isClosed);
       setExcluded(a.excludeFromNetWorth);
+      setLimit(a.creditLimitCents === null ? "" : centsToDecimalString(a.creditLimitCents));
+      setLow(a.lowBalanceCents === null ? "" : centsToDecimalString(a.lowBalanceCents));
+      setThresholdError(null);
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -334,6 +343,24 @@ function AccountSettings({
     if (hidden !== a.isHidden) changes.isHidden = hidden;
     if (closed !== a.isClosed) changes.isClosed = closed;
     if (excluded !== a.excludeFromNetWorth) changes.excludeFromNetWorth = excluded;
+    const toCents = (v: string): number | null | undefined => {
+      if (!v.trim()) return null;
+      try {
+        const c = Math.abs(parseCents(v.trim().replace(/^\$/, "")));
+        return c;
+      } catch {
+        return undefined;
+      }
+    };
+    const newLimit = toCents(limit);
+    const newLow = toCents(low);
+    if (newLimit === undefined || newLow === undefined || newLimit === 0) {
+      setThresholdError("Enter amounts like 5000 or 250.00 (or leave blank).");
+      return;
+    }
+    setThresholdError(null);
+    if (newLimit !== a.creditLimitCents) changes.creditLimitCents = newLimit;
+    if (newLow !== a.lowBalanceCents) changes.lowBalanceCents = newLow;
     if (Object.keys(changes).length === 0) return onOpenChange(false);
     patch.mutate(changes, {
       onSuccess: () => {
@@ -398,6 +425,40 @@ function AccountSettings({
               </button>
             ))}
           </div>
+        </div>
+        <div className="space-y-2">
+          {type === "credit" ? (
+            <>
+              <Label htmlFor="acct-limit">Credit limit ($)</Label>
+              <Input
+                id="acct-limit"
+                inputMode="decimal"
+                placeholder="Optional, e.g. 5000"
+                value={limit}
+                onChange={(e) => setLimit(e.target.value)}
+                className="h-11 md:h-9"
+              />
+              <p className="text-xs text-muted-foreground">Used to flag high credit utilization in Insights.</p>
+            </>
+          ) : (
+            <>
+              <Label htmlFor="acct-low">Low-balance alert ($)</Label>
+              <Input
+                id="acct-low"
+                inputMode="decimal"
+                placeholder="Optional, e.g. 500"
+                value={low}
+                onChange={(e) => setLow(e.target.value)}
+                className="h-11 md:h-9"
+              />
+              <p className="text-xs text-muted-foreground">Insights will warn you when the balance drops below this.</p>
+            </>
+          )}
+          {thresholdError && (
+            <p role="alert" className="text-sm text-negative">
+              {thresholdError}
+            </p>
+          )}
         </div>
         <div className="space-y-3 rounded-xl border border-border p-3">
           <SwitchRow
