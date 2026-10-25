@@ -8,6 +8,7 @@ import {
   type AccountGroupKey,
   type AccountType,
 } from "./account-types";
+import { convertCents, getRates } from "./currency";
 import { addDaysToDate, currentMonth, DAY, localDateString, monthRange } from "./dates";
 
 export const STALE_AFTER_SECONDS = 3 * DAY;
@@ -117,6 +118,7 @@ export function balanceSeries(
 /** Accounts grouped for the overview page. Hidden accounts are left out unless asked for. */
 export function getAccountsOverview(db: DbLike, now: number, timeZone: string, includeHidden = false): AccountGroup[] {
   const rows = db.select().from(accounts).orderBy(accounts.sortOrder, accounts.orgName, accounts.name).all();
+  const rates = getRates(db);
   const groups = new Map<AccountGroupKey, AccountGroup>();
   for (const row of rows) {
     if (row.isHidden && !includeHidden) continue;
@@ -126,7 +128,7 @@ export function getAccountsOverview(db: DbLike, now: number, timeZone: string, i
       ...toSummary(row, now),
       sparkline: balanceSeries(db, row.id, SPARKLINE_DAYS, now, timeZone).map((p) => p.balanceCents),
     });
-    group.totalCents += row.balanceCents;
+    group.totalCents += convertCents(row.balanceCents, row.currency, rates);
     groups.set(key, group);
   }
   return ACCOUNT_GROUP_ORDER.flatMap((k) => groups.get(k) ?? []);

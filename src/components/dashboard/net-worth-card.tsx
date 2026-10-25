@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
@@ -111,6 +112,15 @@ export function NetWorthCard({ summary }: { summary: NetWorthSummary }) {
           tickFormat={days !== null && days <= 180 ? "MMM d" : "MMM yy"}
           height={220}
         />
+        {summary.converted.length > 0 && (
+          <p className="text-xs text-muted-foreground" data-testid="fx-note">
+            Includes accounts in {summary.converted.map((c) => c.currency).join(", ")}, converted to dollars at{" "}
+            <Link href="/settings/currency" className="text-link underline-offset-4 hover:underline">
+              the rates you set
+            </Link>
+            {summary.converted.some((c) => c.rate === null) ? " (no rate yet for some, so those count 1 to 1)" : ""}.
+          </p>
+        )}
         <span className="sr-only" aria-live="polite">
           {loadingSeries ? "Loading chart" : `Showing ${RANGE_LABELS[range]}`}
         </span>

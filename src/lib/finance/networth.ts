@@ -2,6 +2,7 @@ import { and, asc, inArray, lte, min, sql, type AnyColumn } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
 import { accounts, balanceSnapshots } from "@/db/schema";
 import type { BalancePoint } from "./accounts-overview";
+import { convertCents, foreignCurrencies, getRates, scaleFor } from "./currency";
 import { addDaysToDate, localDateString } from "./dates";
 
 export const NET_WORTH_RANGES = { "1M": 30, "3M": 90, "6M": 180, "1Y": 365, ALL: null } as const;
@@ -22,6 +23,8 @@ export interface NetWorthSummary {
   baselineDate: string | null;
   baselineKind: "30d" | "first" | null;
   range: NetWorthRange;
+  /** Accounts in other currencies are included at these rates (1 unit = `rate` dollars; null = no rate set, counted 1 to 1). */
+  converted: Array<{ currency: string; rate: number | null }>;
   series: BalancePoint[];
 }
 
@@ -32,11 +35,13 @@ const isFalse = (col: AnyColumn) => sql`${col} = 0`;
  * a hidden account disappears from every list, so it shouldn't silently move the total either.
  */
 function countedAccounts(db: DbLike) {
+  const rates = getRates(db);
   return db
-    .select({ id: accounts.id, balanceCents: accounts.balanceCents })
+    .select({ id: accounts.id, balanceCents: accounts.balanceCents, currency: accounts.currency })
     .from(accounts)
     .where(and(isFalse(accounts.excludeFromNetWorth), isFalse(accounts.isHidden)))
-    .all();
+    .all()
+    .map((a) => ({ id: a.id, balanceCents: convertCents(a.balanceCents, a.currency, rates) }));
 }
 
 /**
@@ -53,10 +58,11 @@ export function netWorthBetween(db: DbLike, ids: string[], start: string, end: s
     .where(and(inArray(balanceSnapshots.accountId, ids), lte(balanceSnapshots.date, end)))
     .orderBy(asc(balanceSnapshots.date))
     .all();
+  const scale = scaleFor(db, ids); // accounts in other currencies are converted at your rates
   const byAccount = new Map<string, Array<{ date: string; balance: number }>>();
   for (const r of rows) {
     const list = byAccount.get(r.id) ?? [];
-    list.push({ date: r.date, balance: r.balance });
+    list.push({ date: r.date, balance: scale?.has(r.id) ? Math.round(r.balance * scale.get(r.id)!) : r.balance });
     byAccount.set(r.id, list);
   }
 
@@ -150,6 +156,7 @@ export function getNetWorthSummary(db: DbLike, range: NetWorthRange, now: number
     baselineDate,
     baselineKind,
     range,
+    converted: counted.length === 0 ? [] : foreignCurrencies(db).map((c) => ({ currency: c.currency, rate: c.rate })),
     series: getNetWorthSeries(db, range, now, timeZone),
   };
 }
