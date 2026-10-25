@@ -2,10 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNowStrict, parse } from "date-fns";
-import { AlertTriangle, ArrowLeft, Check, Pencil, Plus, Settings2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Pencil, Plus, Scale, Settings2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ReconcileDialog } from "@/components/accounts/reconcile-dialog";
 import { ManualAccountControls } from "@/components/accounts/manual-account-controls";
 import { ManualTransactionDialog } from "@/components/accounts/manual-transaction-dialog";
 import { BalanceChart } from "@/components/charts/balance-chart";
@@ -122,6 +123,7 @@ export function AccountPage({ id }: { id: string }) {
 function Header({ id, detail, loading }: { id: string; detail: AccountDetail | undefined; loading: boolean }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addingTxn, setAddingTxn] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
   const patch = useAccountPatch(id);
 
   if (loading || !detail) {
@@ -169,6 +171,16 @@ function Header({ id, detail, loading }: { id: string; detail: AccountDetail | u
           </span>
         )}
       </div>
+      <Button variant="outline" className="mr-2 h-11 md:h-9" onClick={() => setReconciling(true)}>
+        <Scale /> Reconcile
+      </Button>
+      <ReconcileDialog
+        accountId={a.id}
+        currency={a.currency}
+        currentBalanceCents={a.balanceCents}
+        open={reconciling}
+        onOpenChange={setReconciling}
+      />
       {a.isManual && (
         <>
           <Button variant="outline" className="h-11 md:h-9" onClick={() => setAddingTxn(true)}>
