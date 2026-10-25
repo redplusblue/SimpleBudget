@@ -60,6 +60,7 @@ describe("middleware", () => {
     "/api/goals",
     "/api/goals/1",
     "/api/forecast",
+    "/api/year",
     "/api/targets",
     "/api/targets/1",
     "/api/recurring",
