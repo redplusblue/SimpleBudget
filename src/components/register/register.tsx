@@ -8,11 +8,12 @@ import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isTypingTarget, modalOpen } from "@/lib/keyboard";
 import { useCategories } from "@/hooks/use-lookups";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { countActiveFilters, filtersFromSearchParams, filtersToSearchParams } from "@/lib/finance/transaction-params";
 import type { BulkPatchInput } from "@/lib/finance/transaction-schemas";
-import type { TransactionFilters } from "@/lib/finance/transaction-types";
+import type { TransactionFilters, TransactionPage } from "@/lib/finance/transaction-types";
 import { BulkBar } from "./bulk-bar";
 import { TransactionDrawer } from "./detail-drawer";
 import { FiltersBar } from "./filters-bar";
@@ -29,7 +30,13 @@ const PREFETCH_ROWS = 15;
  * The transaction register: virtualized, infinitely scrolling, grouped by day, with URL-backed filters.
  * Scoped to one account when `accountId` is given (running balances are then available).
  */
-export function Register({ accountId }: { accountId?: string }) {
+export function Register({
+  accountId,
+  initial,
+}: {
+  accountId?: string;
+  initial?: { qs: string; page: TransactionPage };
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -53,7 +60,7 @@ export function Register({ accountId }: { accountId?: string }) {
   );
   const clearFilters = useCallback(() => router.replace(pathname, { scroll: false }), [router, pathname]);
 
-  const query = useTransactions(filters);
+  const query = useTransactions(filters, initial);
   const rows = useMemo(() => query.data?.pages.flatMap((p) => p.rows) ?? [], [query.data]);
   const total = query.data?.pages[0]?.total;
   const items = useMemo(() => groupRows(rows), [rows]);
@@ -94,6 +101,8 @@ export function Register({ accountId }: { accountId?: string }) {
     bulk.mutate({ ids: [...selected], patch }, { onSuccess: clearSelection });
 
   const [openId, setOpenId] = useState<number | null>(null);
+  // Keyboard cursor for j / k, Enter and c (desktop).
+  const [activeId, setActiveId] = useState<number | null>(null);
 
   // Virtualized list against the window scroll.
   const listRef = useRef<HTMLDivElement>(null);
@@ -126,6 +135,30 @@ export function Register({ accountId }: { accountId?: string }) {
     if (hasNextPage && !isFetchingNextPage && items.length > 0 && lastIndex >= items.length - PREFETCH_ROWS)
       fetchNextPage();
   }, [lastIndex, items.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    if (isMobile) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented || isTypingTarget(e) || modalOpen()) return;
+      if (e.key === "j" || e.key === "k") {
+        if (rows.length === 0) return;
+        e.preventDefault();
+        const at = rows.findIndex((r) => r.id === activeId);
+        const next = at < 0 ? 0 : Math.min(rows.length - 1, Math.max(0, at + (e.key === "j" ? 1 : -1)));
+        setActiveId(rows[next].id);
+        const itemIndex = items.findIndex((it) => it.kind === "row" && it.row.id === rows[next].id);
+        if (itemIndex >= 0) virtualizer.scrollToIndex(itemIndex, { align: "auto" });
+      } else if (e.key === "Enter" && activeId !== null) {
+        e.preventDefault();
+        setOpenId(activeId);
+      } else if (e.key === "c" && activeId !== null) {
+        e.preventDefault();
+        document.querySelector<HTMLElement>(`[data-id="${activeId}"] [role="combobox"]`)?.click();
+      } else if (e.key === "Escape") setActiveId(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isMobile, rows, items, activeId, virtualizer]);
 
   const stickyLabel = headerAt(items, virtualItems[0]?.index ?? 0);
   const active = countActiveFilters(filters);
@@ -229,6 +262,7 @@ export function Register({ accountId }: { accountId?: string }) {
                       showBalance={showBalance}
                       mobile={isMobile}
                       selected={selected.has(item.row.id)}
+                      active={activeId === item.row.id}
                       selectionMode={selectionMode}
                       onOpen={setOpenId}
                       onToggleSelect={toggleSelect}

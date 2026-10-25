@@ -3,15 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Animates a number toward `target` over `durationMs` (ease-out). The first render counts up from zero,
- * later changes animate from the value currently on screen. Skips the animation entirely when the user
+ * Animates a number toward `target` over `durationMs` (ease-out). The first render shows `target` as is (so
+ * server-rendered HTML has the real number); later changes animate from the value currently on screen. Skips the animation entirely when the user
  * prefers reduced motion.
  */
 export function useCountUp(target: number, durationMs = 300): number {
-  const [value, setValue] = useState(0);
-  const shown = useRef(0);
+  // Starts at the target, so the first paint (and server-rendered HTML) already shows the real number; later changes animate.
+  const [value, setValue] = useState(target);
+  const shown = useRef(target);
 
   useEffect(() => {
+    if (shown.current === target) return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || durationMs <= 0) {
       shown.current = target;
       setValue(target);

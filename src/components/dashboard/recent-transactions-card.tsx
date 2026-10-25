@@ -18,7 +18,7 @@ export function RecentTransactionsCard({ rows, categories }: { rows: Transaction
           </h2>
           <Link
             href="/transactions"
-            className="inline-flex min-h-8 items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
+            className="inline-flex min-h-8 items-center gap-1 text-sm text-link underline-offset-4 hover:underline"
           >
             View all <ArrowRight className="size-3.5" aria-hidden />
           </Link>

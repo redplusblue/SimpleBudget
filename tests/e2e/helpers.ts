@@ -77,3 +77,21 @@ export function insertExpense(dbPath: string, e: ExpenseSeed): number {
     db.close();
   }
 }
+
+/**
+ * Heavy cards mount when they scroll near the screen (LazyMount). Brings each placeholder into view in turn (the page
+ * grows as cards load, so it keeps looking) until none is left, then returns to the top.
+ */
+export async function revealLazy(page: Page) {
+  for (let i = 0; i < 60; i++) {
+    const pending = await page.evaluate(() => {
+      const el = document.querySelector('[data-lazy="pending"]');
+      el?.scrollIntoView({ block: "center" });
+      return !!el;
+    });
+    if (!pending) break;
+    await page.waitForTimeout(120);
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(100);
+}

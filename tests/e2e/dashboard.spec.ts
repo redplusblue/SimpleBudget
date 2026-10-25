@@ -1,10 +1,11 @@
-import { expectNoHorizontalOverflow } from "./helpers";
+import { expectNoHorizontalOverflow, revealLazy } from "./helpers";
 import { expect, test } from "@playwright/test";
 
 const money = (cents: number) => (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 test("net worth hero, assets vs liabilities and the account list agree with the data", async ({ page }) => {
   await page.goto("/");
+  await revealLazy(page);
   // Fixture balances: 4,823.17 + (-1,234.56) + 10,300.00
   const card = page.getByRole("region", { name: "Net worth" }).or(page.locator('[aria-labelledby="net-worth-title"]'));
   await expect(card.getByText("$13,888.61")).toBeVisible(); // waits out the count-up animation
@@ -20,6 +21,7 @@ test("net worth hero, assets vs liabilities and the account list agree with the 
 test("this month at a glance matches /api/dashboard", async ({ page, request }) => {
   const data = await (await request.get("/api/dashboard")).json();
   await page.goto("/");
+  await revealLazy(page);
   const glance = page.locator('[aria-labelledby="glance-title"]');
   await expect(glance).toContainText(money(data.glance.spentCents));
   await expect(glance).toContainText(money(data.glance.incomeCents));
@@ -32,12 +34,15 @@ test("this month at a glance matches /api/dashboard", async ({ page, request }) 
 test("spending pace chart, recent transactions and placeholders render", async ({ page, request }) => {
   const data = await (await request.get("/api/dashboard")).json();
   await page.goto("/");
+  await revealLazy(page);
   await expect(page.getByText("Spending pace")).toBeVisible();
   if (
     data.spending.points.some((p: { current: number | null }) => (p.current ?? 0) > 0) ||
     data.spending.hasComparison
   ) {
     await expect(page.getByTestId("spending-chart")).toBeVisible();
+    // The drawn chart, not just its box (a zero-height container renders nothing).
+    await expect(page.getByTestId("spending-chart").locator("svg.recharts-surface").first()).toBeVisible();
   }
   const recent = page.getByTestId("recent-list").getByRole("link");
   await expect(recent).toHaveCount(Math.min(8, data.recent.length));
@@ -49,6 +54,7 @@ test("spending pace chart, recent transactions and placeholders render", async (
 
 test("the range toggle loads other ranges and keeps the chart visible", async ({ page }) => {
   await page.goto("/");
+  await revealLazy(page);
   await expect(page.getByTestId("balance-chart").or(page.getByText(/Balance history builds up/))).toBeVisible();
   const toggle = page.getByRole("group", { name: "Net worth range" }).or(page.getByLabel("Net worth range"));
   const req = page.waitForRequest((r) => r.url().includes("/api/networth?range=1M"));
@@ -65,6 +71,7 @@ test("category rows drill into the register with filters applied", async ({ page
   const data = await (await request.get("/api/dashboard")).json();
   test.skip(data.categories.items.length === 0, "no spending this month in the fixture data");
   await page.goto("/");
+  await revealLazy(page);
   const first = data.categories.items[0];
   await page
     .locator('[aria-labelledby="categories-title"]')
@@ -79,6 +86,7 @@ test("category rows drill into the register with filters applied", async ({ page
 
 test("the dashboard fits the screen", async ({ page }) => {
   await page.goto("/");
+  await revealLazy(page);
   await expect(page.getByTestId("assets-liabilities")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

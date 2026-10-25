@@ -1,4 +1,5 @@
 import { BottomNav } from "./bottom-nav";
+import { Shortcuts } from "./shortcuts";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
@@ -13,6 +14,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <BottomNav />
+      <Shortcuts />
     </div>
   );
 }

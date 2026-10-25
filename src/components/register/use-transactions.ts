@@ -26,7 +26,7 @@ export const txDetailKey = (id: number) => ["transaction", id] as const;
 
 type Pages = InfiniteData<TransactionPage, string | null>;
 
-export function useTransactions(filters: TransactionFilters) {
+export function useTransactions(filters: TransactionFilters, initial?: { qs: string; page: TransactionPage }) {
   const qs = filtersToSearchParams(filters).toString();
   return useInfiniteQuery({
     queryKey: [...TX_KEY, qs],
@@ -39,6 +39,8 @@ export function useTransactions(filters: TransactionFilters) {
     },
     getNextPageParam: (last) => last.nextCursor,
     staleTime: 30_000,
+    // The first page was rendered on the server for the address the page was opened with.
+    initialData: initial && initial.qs === qs ? { pages: [initial.page], pageParams: [null] } : undefined,
   });
 }
 

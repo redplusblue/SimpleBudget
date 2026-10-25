@@ -1,5 +1,6 @@
 "use client";
 
+import { ChartTable } from "@/components/charts/chart-table";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -37,80 +38,90 @@ export function TrendsChart({ trends }: { trends: TrendReport }) {
       {!hasData ? (
         <EmptyNote>Trends appear as months of spending build up.</EmptyNote>
       ) : (
-        <div
-          className="h-72 w-full"
-          data-testid="trends-chart"
-          role="img"
-          aria-label={`Monthly spending and income for the last ${trends.months.length} months`}
+        <ChartTable
+          title="Monthly spending by category and income"
+          columns={["Month", ...trends.series.map((s) => s.name), "Income"]}
+          rows={trends.months.map((m, i) => [
+            monthLong(m),
+            ...trends.series.map((s) => ({ cents: s.values[i] })),
+            { cents: trends.incomeCents[i] },
+          ])}
         >
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="label"
-                tick={{ fill: "var(--text-faint)", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                interval={0}
-              />
-              <YAxis
-                tickFormatter={(v: number) => formatCents(v, { compact: true })}
-                tick={{ fill: "var(--text-faint)", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                width={52}
-              />
-              <Tooltip
-                cursor={{ fill: "var(--surface-2)", opacity: 0.5 }}
-                contentStyle={{
-                  background: "var(--surface-2)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 12,
-                  fontSize: 12,
-                }}
-                labelFormatter={(_l, items) => (items?.[0]?.payload?.month ? monthLong(items[0].payload.month) : "")}
-                formatter={(v, key) => [
-                  formatCents(Number(v)),
-                  key === "income" ? "Income" : (trends.series[Number(String(key).slice(1))]?.name ?? String(key)),
-                ]}
-              />
-              <Legend
-                verticalAlign="bottom"
-                height={28}
-                iconType="circle"
-                iconSize={8}
-                wrapperStyle={{ fontSize: 11 }}
-                formatter={(key) =>
-                  key === "income" ? "Income" : (trends.series[Number(String(key).slice(1))]?.name ?? String(key))
-                }
-              />
-              {trends.series.map((s, j) => (
-                <Bar
-                  key={j}
-                  dataKey={`s${j}`}
-                  stackId="spending"
-                  fill={s.color}
-                  isAnimationActive={false}
-                  cursor="pointer"
-                  radius={j === trends.series.length - 1 ? [4, 4, 0, 0] : 0}
-                  onClick={(d: { payload?: { month?: string } }) => {
-                    const month = d?.payload?.month;
-                    if (month)
-                      router.push(spendingHref(monthSpan(month), s.other ? {} : { categoryId: s.id ?? "none" }));
-                  }}
+          <div
+            className="h-72 w-full"
+            data-testid="trends-chart"
+            role="img"
+            aria-label={`Monthly spending and income for the last ${trends.months.length} months`}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill: "var(--text-faint)", fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  interval={0}
                 />
-              ))}
-              <Line
-                type="monotone"
-                dataKey="income"
-                stroke="var(--positive)"
-                strokeWidth={2}
-                dot={{ r: 2.5 }}
-                isAnimationActive={false}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
+                <YAxis
+                  tickFormatter={(v: number) => formatCents(v, { compact: true })}
+                  tick={{ fill: "var(--text-faint)", fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={52}
+                />
+                <Tooltip
+                  cursor={{ fill: "var(--surface-2)", opacity: 0.5 }}
+                  contentStyle={{
+                    background: "var(--surface-2)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 12,
+                    fontSize: 12,
+                  }}
+                  labelFormatter={(_l, items) => (items?.[0]?.payload?.month ? monthLong(items[0].payload.month) : "")}
+                  formatter={(v, key) => [
+                    formatCents(Number(v)),
+                    key === "income" ? "Income" : (trends.series[Number(String(key).slice(1))]?.name ?? String(key)),
+                  ]}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  height={28}
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 11 }}
+                  formatter={(key) =>
+                    key === "income" ? "Income" : (trends.series[Number(String(key).slice(1))]?.name ?? String(key))
+                  }
+                />
+                {trends.series.map((s, j) => (
+                  <Bar
+                    key={j}
+                    dataKey={`s${j}`}
+                    stackId="spending"
+                    fill={s.color}
+                    isAnimationActive={false}
+                    cursor="pointer"
+                    radius={j === trends.series.length - 1 ? [4, 4, 0, 0] : 0}
+                    onClick={(d: { payload?: { month?: string } }) => {
+                      const month = d?.payload?.month;
+                      if (month)
+                        router.push(spendingHref(monthSpan(month), s.other ? {} : { categoryId: s.id ?? "none" }));
+                    }}
+                  />
+                ))}
+                <Line
+                  type="monotone"
+                  dataKey="income"
+                  stroke="var(--positive)"
+                  strokeWidth={2}
+                  dot={{ r: 2.5 }}
+                  isAnimationActive={false}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartTable>
       )}
     </Section>
   );

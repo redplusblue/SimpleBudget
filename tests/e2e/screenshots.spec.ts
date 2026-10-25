@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { expectNoHorizontalOverflow } from "./helpers";
+import { expectNoHorizontalOverflow, revealLazy } from "./helpers";
 import { expect, test } from "@playwright/test";
 
 // `SCREENSHOTS=1 pnpm test:e2e --project=big tests/e2e/screenshots.spec.ts` refreshes docs/screenshots/.
@@ -20,6 +20,7 @@ test("dashboard screenshots at 390, 768 and 1440px", async ({ page }) => {
   for (const { width, height, name } of SIZES) {
     await page.setViewportSize({ width, height });
     await page.goto("/");
+    await revealLazy(page);
     await expect(page.getByTestId("nw-change")).toBeVisible();
     await expect(page.getByTestId("category-donut")).toBeVisible();
     await page.waitForTimeout(1200); // count-up and chart settle

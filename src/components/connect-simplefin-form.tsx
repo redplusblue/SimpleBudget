@@ -44,7 +44,7 @@ export function ConnectSimpleFinForm({ onConnected }: { onConnected: () => void 
           href="https://bridge.simplefin.org"
           target="_blank"
           rel="noreferrer noopener"
-          className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+          className="inline-flex items-center gap-1 text-link underline-offset-4 hover:underline"
         >
           bridge.simplefin.org <ExternalLink className="size-3" />
         </a>{" "}

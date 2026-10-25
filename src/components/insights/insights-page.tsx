@@ -9,8 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJson } from "@/lib/fetch-json";
 import type { InsightsPayload } from "@/lib/insights/types";
 import { InsightCard } from "./insight-card";
-
-export const INSIGHTS_KEY = ["insights"] as const;
+import { INSIGHTS_KEY } from "./keys";
 
 export function InsightsPage() {
   const query = useQuery({

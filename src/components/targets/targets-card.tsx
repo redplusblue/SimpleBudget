@@ -106,7 +106,7 @@ export function TargetsCard({
           <h2 id="targets-title" className="text-sm font-medium text-muted-foreground">
             Targets
           </h2>
-          <Link href="/settings/targets" className="text-sm text-primary underline-offset-4 hover:underline">
+          <Link href="/settings/targets" className="text-sm text-link underline-offset-4 hover:underline">
             Manage
           </Link>
         </div>

@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -44,6 +44,7 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-link: var(--link);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -80,6 +81,7 @@
   --popover: var(--surface);
   --popover-foreground: var(--text);
   --primary: #6366f1;
+  --link: #4f46e5; /* text-sized accent: meets 4.5:1 on the page background */
   --primary-foreground: #ffffff;
   --secondary: var(--surface-2);
   --secondary-foreground: var(--text);
@@ -115,7 +117,8 @@
   --text-muted: #9aa1b2;
   --text-faint: #6b7385;
   --positive: #22c55e;
-  --negative: #f43f5e;
+  --negative: #fb7185;
+  --link: #8b8ef5;
   --warning: #f59e0b;
   --info: #38bdf8;
   --border: #232836;
@@ -195,4 +198,13 @@
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Privacy mode: every money value (and chart numbers) is blurred until the eye button is toggled off. */
+html[data-privacy="on"] [data-money],
+html[data-privacy="on"] [data-sensitive],
+html[data-privacy="on"] .recharts-wrapper text,
+html[data-privacy="on"] .recharts-tooltip-wrapper {
+  filter: blur(7px);
+  user-select: none;
 }

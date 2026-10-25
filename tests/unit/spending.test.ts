@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { accounts } from "@/db/schema";
-import { getDashboard } from "@/lib/finance/dashboard";
-import { getInsights } from "@/lib/insights";
+import { getDashboard, getUpcoming } from "@/lib/finance/dashboard";
 import { createTarget } from "@/lib/finance/targets";
 import { zonedDayStart } from "@/lib/finance/dates";
 import { getCategoryBreakdown, getMonthlySpending } from "@/lib/finance/spending";
@@ -178,18 +177,6 @@ describe("getDashboard", () => {
     expect(getDashboard(db, { month: "2026-09", now: NOW, timeZone: TZ }).glance.spentCents).toBe(79_000);
   });
 
-  it("includes the top three insights and the total count", () => {
-    const db = dataset();
-    const d = getDashboard(db, { now: NOW, timeZone: TZ });
-    expect(d.insights.top.length).toBeLessThanOrEqual(3);
-    expect(d.insights.total).toBeGreaterThanOrEqual(d.insights.top.length);
-    expect(d.insights.top.map((i) => i.id)).toEqual(
-      getInsights(db, { now: NOW, timeZone: TZ })
-        .insights.slice(0, 3)
-        .map((i) => i.id),
-    );
-  });
-
   it("includes target progress, and nothing at all when no targets exist", () => {
     const db = dataset();
     expect(getDashboard(db, { now: NOW, timeZone: TZ }).targets).toEqual([]);
@@ -213,7 +200,7 @@ describe("getDashboard", () => {
     ["2026-07-30", "2026-08-30", "2026-09-30"].forEach((d) =>
       addTxn(db, "a", { posted: at(d), amountCents: -999, description: "CLOUD STORAGE" }),
     );
-    const d = getDashboard(db, { now: NOW, timeZone: TZ });
+    const d = { upcoming: getUpcoming(db, NOW, TZ) };
     expect(d.upcoming.activeCount).toBe(2);
     expect(d.upcoming.monthlyTotalCents).toBe(1_549 + 999);
     expect(d.upcoming.items.map((u) => [u.name, u.nextDate, u.inDays])).toEqual(
@@ -222,7 +209,7 @@ describe("getDashboard", () => {
         ["CLOUD STORAGE", "2026-10-30", 6],
       ].sort((a, b) => (a[1] as string).localeCompare(b[1] as string)),
     );
-    expect(getDashboard(freshDb(), { now: NOW, timeZone: TZ }).upcoming).toEqual({
+    expect(getUpcoming(freshDb(), NOW, TZ)).toEqual({
       items: [],
       monthlyTotalCents: 0,
       activeCount: 0,

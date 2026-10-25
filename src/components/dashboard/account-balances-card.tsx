@@ -13,7 +13,7 @@ export function AccountBalancesCard({ groups }: { groups: AccountGroup[] }) {
           <h2 id="balances-title" className="text-sm font-medium text-muted-foreground">
             Accounts
           </h2>
-          <Link href="/accounts" className="text-sm text-primary underline-offset-4 hover:underline">
+          <Link href="/accounts" className="text-sm text-link underline-offset-4 hover:underline">
             Details
           </Link>
         </div>

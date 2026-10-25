@@ -1,10 +1,18 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { ArrowUpRight, CalendarClock } from "lucide-react";
 import Link from "next/link";
 import { Money } from "@/components/money";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { fetchJson } from "@/lib/fetch-json";
 import { Card, CardContent } from "@/components/ui/card";
 import type { UpcomingSummary } from "@/lib/finance/dashboard-types";
 import { cn } from "@/lib/utils";
+
+export const UPCOMING_KEY = ["upcoming"] as const;
 
 function when(inDays: number): { text: string; late: boolean } {
   if (inDays < 0) return { text: `${-inDays} day${inDays === -1 ? "" : "s"} late`, late: true };
@@ -14,7 +22,17 @@ function when(inDays: number): { text: string; late: boolean } {
 }
 
 /** The next recurring charges, from the detector (subscriptions and regular bills). */
-export function UpcomingCard({ upcoming }: { upcoming: UpcomingSummary }) {
+export function UpcomingCard() {
+  const {
+    data: upcoming,
+    isPending,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: UPCOMING_KEY,
+    queryFn: () => fetchJson<UpcomingSummary>("/api/dashboard/upcoming"),
+    staleTime: 60_000,
+  });
   return (
     <Card aria-labelledby="upcoming-title">
       <CardContent className="space-y-3">
@@ -22,11 +40,23 @@ export function UpcomingCard({ upcoming }: { upcoming: UpcomingSummary }) {
           <h2 id="upcoming-title" className="text-sm font-medium text-muted-foreground">
             Upcoming
           </h2>
-          <Link href="/spending#recurring" className="text-sm text-primary underline-offset-4 hover:underline">
+          <Link href="/spending#recurring" className="text-sm text-link underline-offset-4 hover:underline">
             All recurring
           </Link>
         </div>
-        {upcoming.items.length === 0 ? (
+        {isPending ? (
+          <div className="space-y-2" aria-busy aria-label="Loading upcoming charges">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : isError ? (
+          <div role="alert" className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-negative">Couldn&apos;t load upcoming charges.</span>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Retry
+            </Button>
+          </div>
+        ) : upcoming.items.length === 0 ? (
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-2">
               <CalendarClock className="size-4" aria-hidden />
@@ -63,7 +93,7 @@ export function UpcomingCard({ upcoming }: { upcoming: UpcomingSummary }) {
             })}
           </ul>
         )}
-        {upcoming.activeCount > 0 && (
+        {upcoming && upcoming.activeCount > 0 && (
           <p className="border-t border-border pt-3 text-xs text-muted-foreground">
             About <Money cents={upcoming.monthlyTotalCents} className="font-medium text-foreground" /> a month across{" "}
             {upcoming.activeCount} recurring charge{upcoming.activeCount === 1 ? "" : "s"}.

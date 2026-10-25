@@ -35,7 +35,7 @@ export function parseBlocks(markdown: string): Block[] {
 /** A tiny renderer for the headings, bullets and bold text the assistant writes. */
 export function MarkdownLite({ text }: { text: string }) {
   return (
-    <div className="space-y-2 text-sm leading-relaxed">
+    <div data-sensitive className="space-y-2 text-sm leading-relaxed">
       {parseBlocks(text).map((b, i) =>
         b.kind === "ul" ? (
           <ul key={i} className="list-disc space-y-1 pl-5">

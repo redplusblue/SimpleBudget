@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { insertConnection, MOCK_PORT, expectNoHorizontalOverflow } from "./helpers";
+import { insertConnection, MOCK_PORT, expectNoHorizontalOverflow, revealLazy } from "./helpers";
 
 test("fresh install walks through the whole setup wizard on mobile", async ({ page }) => {
   await page.goto("/");
@@ -59,4 +59,36 @@ test("fresh install walks through the whole setup wizard on mobile", async ({ pa
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Synced .* ago/ })).toBeVisible();
+
+  // The dashboard has real numbers from the mock bank.
+  await revealLazy(page);
+  await expect(page.getByRole("heading", { name: "Net worth" })).toBeVisible();
+  await expect(page.getByTestId("assets-liabilities")).toBeVisible();
+
+  // Put an expense in a category, rename that category in settings, and the new name shows on the Spending page.
+  const expense = (await (await page.request.get("/api/transactions?type=expense&limit=1")).json()).rows[0] as {
+    id: number;
+    effectiveDate: number;
+  };
+  const cats = (await (await page.request.get("/api/categories")).json()).categories as Array<{
+    id: number;
+    name: string;
+  }>;
+  const dining = cats.find((c) => c.name === "Dining")!;
+  expect((await page.request.patch(`/api/transactions/${expense.id}`, { data: { categoryId: dining.id } })).ok()).toBe(
+    true,
+  );
+
+  await page.goto("/settings/categories");
+  await page.getByRole("button", { name: "Actions for Dining" }).click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
+  await page.getByRole("dialog").getByLabel("Name").fill("Eating out");
+  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect(page.getByTestId("category-row").filter({ hasText: "Eating out" })).toBeVisible();
+
+  const day = new Date(expense.effectiveDate * 1000).toISOString().slice(0, 10);
+  await page.goto(`/spending?from=${day}&to=${day}`);
+  await revealLazy(page);
+  await expect(page.getByTestId("category-table")).toContainText("Eating out");
+  await expectNoHorizontalOverflow(page);
 });

@@ -301,7 +301,7 @@ function DrawerBody({
                   type="button"
                   onClick={() => setRawOpen((o) => !o)}
                   aria-expanded={rawOpen}
-                  className="text-xs text-primary underline-offset-4 hover:underline"
+                  className="text-xs text-link underline-offset-4 hover:underline"
                 >
                   {rawOpen ? "Hide" : "Show"} raw data
                 </button>

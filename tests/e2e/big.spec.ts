@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { revealLazy } from "./helpers";
 
 // Runs against a database seeded with ~10,000 fake transactions (pnpm db:seed-fake).
 
@@ -161,6 +162,7 @@ test.describe("spending analytics on 10,000 transactions", () => {
     // a category row
     const cat = r.categories.find((c: { id: number | null }) => c.id !== null);
     await page.goto(`/spending?${qs}`);
+    await revealLazy(page);
     await page
       .getByTestId("category-table")
       .getByRole("link", { name: new RegExp(cat.name) })
@@ -172,6 +174,7 @@ test.describe("spending analytics on 10,000 transactions", () => {
     // a merchant row
     const merchant = r.merchants[1];
     await page.goto(`/spending?${qs}`);
+    await revealLazy(page);
     await page
       .getByTestId("merchant-table")
       .getByRole("link", { name: new RegExp(merchant.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) })
@@ -201,6 +204,7 @@ test.describe("spending analytics on 10,000 transactions", () => {
   test("the trend chart and weekday chart render, and the page renders in well under 6 seconds", async ({ page }) => {
     const t0 = Date.now();
     await page.goto("/spending");
+    await revealLazy(page);
     await expect(page.getByTestId("trends-chart")).toBeVisible();
     await expect(page.getByTestId("weekday-chart")).toBeVisible();
     await expect(page.getByTestId("recurring-total")).toBeVisible();

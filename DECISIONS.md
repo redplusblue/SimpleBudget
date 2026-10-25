@@ -144,3 +144,22 @@
   - Re-importing the same file changes nothing (rows match what the first run inserted).
 - **Export.** CSV of every transaction (formulas defused so spreadsheets don't execute payees), and a consistent SQLite copy via `VACUUM INTO`. The backup contains the encrypted bank access URL and the password hash; the page says so.
 - **Not done:** Actual's budget-envelope data and category groups are not part of its transaction CSV, so they aren't imported.
+
+## Phase 11: polish, PWA, hardening
+
+- **New dependency:** `pino` for logging (the plan asks for it). Logs redact secret-named keys and scrub `user:pass@` URLs and API-key-looking tokens from messages and errors.
+- **PWA.** Manifest, icons drawn on request by `next/og` (so no binaries in the repo), and a service worker that caches only `/_next/static/*` and `/icons/*`. Pages and every `/api` response always come from the network, so financial data is never stored by the worker or served stale.
+- **Privacy mode** is a CSS blur on `[data-money]`, `[data-sensitive]` and chart text, switched by an attribute on `<html>` that an inline script sets before first paint (no flash of real numbers). Free text that contains amounts (insights, AI answers) is marked `data-sensitive`.
+- **Shortcuts** pause while typing, while a picker/menu has focus, and while any dialog is open. The register's `j k Enter c` act on a highlighted row.
+- **Error handling:** every dashboard and spending card sits in its own boundary, `(app)/error.tsx` keeps the shell on a page crash, and `global-error.tsx` is the last resort.
+- **Charts as tables:** net worth/balance, spending pace, weekday and trend charts have a "View as table" switch. The category donut and the calendar already have text equivalents (the list and per-day labels), so they don't.
+- **Security headers:** a CSP with `'unsafe-inline'` for scripts and styles (Next injects small inline scripts for hydration; nonces would require dynamic rendering of every page) but no `'unsafe-eval'`, `frame-ancestors 'none'`, plus the usual nosniff/referrer/permissions headers and HSTS when `COOKIE_SECURE=true`. Zod's `new Function` probe would violate that CSP, so it is switched off in the browser (`z.config({ jitless: true })`).
+- **CSRF:** the session cookie is `SameSite=Lax`, and middleware also refuses any mutating request whose `Origin` (or `Sec-Fetch-Site`) says it came from another site, honouring `X-Forwarded-Host`. Requests with neither header (curl, scripts) still need the cookie.
+- **Backups:** nightly 03:30 via `VACUUM INTO` (written to a `.partial` file and renamed), mode 0600, newest 14 kept, only files with the app's own naming are ever deleted.
+- **Performance (Lighthouse mobile, simulated throttling, demo data):** Dashboard 85-88, Accounts 92, Insights ~83, Spending ~79, Transactions ~66; accessibility 94-100; best practices 100. What got the dashboard there:
+  - it is rendered on the server (real numbers in the first HTML) instead of fetching after hydration;
+  - charts, the palette/dialog code and below-the-fold cards download only when needed (`LazyMount` + `next/dynamic`); upcoming charges and insights load on their own when scrolled into view;
+  - the net-worth chart is a small hand-written SVG, so the dashboard no longer loads Recharts at all on first paint;
+  - a system font stack instead of a 49 KB web font, and an SVG favicon.
+  Transactions is the lowest: its first rows are drawn client-side by the virtualized list, so the first paint waits for JavaScript. Server-rendering rows would need time-zone-safe day headers; left for later.
+- **Accessibility fixes found by Lighthouse:** a separate `--link` color for accent-colored text (the brand indigo is 4.1:1 on the dark background), and a lighter red in dark mode for negative amounts.

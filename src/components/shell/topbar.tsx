@@ -1,4 +1,5 @@
 import { CommandMenu } from "./command-menu";
+import { PrivacyToggle } from "./privacy-toggle";
 import { SyncPill } from "./sync-pill";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -9,6 +10,7 @@ export function Topbar() {
         <CommandMenu />
         <div className="ml-auto flex items-center gap-1">
           <SyncPill />
+          <PrivacyToggle />
           <ThemeToggle />
         </div>
       </div>

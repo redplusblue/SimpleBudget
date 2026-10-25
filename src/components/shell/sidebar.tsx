@@ -57,7 +57,7 @@ export function Sidebar() {
                   collapsed && "justify-center px-0",
                 )}
               >
-                <Icon className={cn("size-[18px] shrink-0", active && "text-primary")} />
+                <Icon className={cn("size-[18px] shrink-0", active && "text-link")} />
                 {!collapsed && label}
                 {collapsed && <span className="sr-only">{label}</span>}
               </Link>

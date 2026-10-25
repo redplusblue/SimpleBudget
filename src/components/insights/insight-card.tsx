@@ -24,12 +24,18 @@ export function InsightCard({ insight, compact }: { insight: Insight; compact?: 
       </span>
       <div className="min-w-0 flex-1 space-y-1">
         <p className="sr-only">{label}</p>
-        <h3 className="text-sm leading-snug font-medium">{insight.title}</h3>
-        {!compact && <p className="text-sm text-muted-foreground">{insight.body}</p>}
+        <h3 data-sensitive className="text-sm leading-snug font-medium">
+          {insight.title}
+        </h3>
+        {!compact && (
+          <p data-sensitive className="text-sm text-muted-foreground">
+            {insight.body}
+          </p>
+        )}
         {insight.link && !compact && (
           <Link
             href={insight.link}
-            className="inline-flex min-h-8 items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
+            className="inline-flex min-h-8 items-center gap-1 text-sm text-link underline-offset-4 hover:underline"
           >
             View transactions <ArrowUpRight className="size-3.5" aria-hidden />
           </Link>

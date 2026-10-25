@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { expectNoHorizontalOverflow, insertExpense } from "./helpers";
+import { expectNoHorizontalOverflow, insertExpense, revealLazy } from "./helpers";
 
 // Runs against its own 10k-transaction install (see the "targets" project): it adds transactions and targets.
 const DB = "./data/e2e-targets.db";
@@ -24,6 +24,7 @@ test.beforeEach(async ({ page }) => login(page));
 
 test("no targets: nothing about targets on the dashboard or Spending page", async ({ page }) => {
   await page.goto("/");
+  await revealLazy(page);
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
   await expect(page.locator("#targets")).toHaveCount(0);
   await page.goto("/spending");
@@ -43,6 +44,7 @@ test("a tag target goes ok -> warning -> over as spending grows, and drills into
   const row = () => page.getByTestId("target-row").filter({ hasText: "e2e-trip" });
   insertExpense(DB, { accountId: "fake-checking", description: "E2E TRIP A", dollars: 50, tagIds: [tagId] });
   await page.goto("/");
+  await revealLazy(page);
   await expect(row()).toContainText("50%");
   await expect(row().getByRole("progressbar")).toHaveAttribute("aria-valuenow", "50");
 
@@ -98,6 +100,7 @@ test("the targets card fits a phone", async ({ page }) => {
   insertExpense(DB, { accountId: "fake-checking", description: "E2E NARROW", dollars: 99999, tagIds: [tagId] });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
+  await revealLazy(page);
   await expect(page.getByTestId("target-row").first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.goto("/settings/targets");

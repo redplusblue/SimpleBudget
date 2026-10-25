@@ -100,6 +100,10 @@ function SearchBox({ value, onCommit }: { value: string; onCommit: (q: string) =
   const [text, setText] = useState(value);
   // Follow external changes (e.g. "Clear"), then debounce our own typing.
   useEffect(() => setText(value), [value]);
+  // "/" from another page lands here with #search.
+  useEffect(() => {
+    if (window.location.hash === "#search") document.querySelector<HTMLInputElement>("[data-search-input]")?.focus();
+  }, []);
   useEffect(() => {
     if (text === value) return;
     const id = setTimeout(() => onCommit(text.trim()), 300);

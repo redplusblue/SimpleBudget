@@ -195,7 +195,7 @@ export function AiPanel() {
     return (
       <p className="text-sm text-muted-foreground">
         Want a written monthly summary or to ask questions?{" "}
-        <Link href="/settings/ai" className="text-primary underline-offset-4 hover:underline">
+        <Link href="/settings/ai" className="text-link underline-offset-4 hover:underline">
           Set up AI
         </Link>{" "}
         (optional).

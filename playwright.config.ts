@@ -32,6 +32,8 @@ const viewports = {
 export default defineConfig({
   testDir: "tests/e2e",
   fullyParallel: true,
+  // Cards and charts load their code on demand, so under a busy CI machine a little patience is reasonable.
+  expect: { timeout: 10_000 },
   reporter: "list",
   globalSetup: "./tests/e2e/global-setup.ts",
   use: { trace: "on-first-retry" },
@@ -39,7 +41,7 @@ export default defineConfig({
     // Pre-configured install (password set, one connection, logged in via storageState).
     ...(["desktop", "mobile"] as const).map((name) => ({
       name,
-      testIgnore: /(fresh|big|screenshots|targets|insights|ai|splits|manual|import|reconcile)\.spec\.ts/,
+      testIgnore: /(fresh|big|screenshots|targets|insights|ai|splits|manual|import|reconcile|polish|console)\.spec\.ts/,
       use: {
         ...viewports[name],
         baseURL: `http://127.0.0.1:${SEEDED_PORT}`,
@@ -55,7 +57,7 @@ export default defineConfig({
     // Its own 10,000-transaction install, because the targets spec adds transactions and creates targets.
     {
       name: "targets",
-      testMatch: /(targets|insights|ai|splits|manual|import|reconcile)\.spec\.ts/,
+      testMatch: /(targets|insights|ai|splits|manual|import|reconcile|polish|console)\.spec\.ts/,
       use: { ...viewports.desktop, baseURL: `http://127.0.0.1:${TARGETS_PORT}` },
     },
     // Brand-new install, used only by the setup wizard spec.

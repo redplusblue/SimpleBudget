@@ -1,7 +1,6 @@
 // Client-safe shapes for GET /api/dashboard.
 import type { AccountGroup } from "./accounts-overview";
 import type { RecurringItem } from "./recurring-types";
-import type { Insight } from "@/lib/insights/types";
 import type { TargetProgress } from "./targets-types";
 import type { NetWorthSummary } from "./networth";
 import type { TransactionRow } from "./transaction-types";
@@ -83,9 +82,6 @@ export interface DashboardPayload {
   spending: SpendingChart;
   categories: CategoryBreakdown;
   recent: TransactionRow[];
-  upcoming: UpcomingSummary;
-  /** The three most important insights, and how many there are in all. */
-  insights: { top: Insight[]; total: number };
   /** Progress for this month's spending targets; empty (and the UI shows nothing) when none are set. */
   targets: TargetProgress[];
   accounts: AccountGroup[];

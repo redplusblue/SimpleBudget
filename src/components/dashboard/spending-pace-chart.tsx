@@ -2,6 +2,7 @@
 
 import { format, parse } from "date-fns";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ChartTable } from "@/components/charts/chart-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCents } from "@/lib/finance/cents";
 import type { SpendingChart } from "@/lib/finance/dashboard-types";
@@ -35,84 +36,96 @@ export function SpendingPaceChart({ chart }: { chart: SpendingChart }) {
           </ul>
         </div>
         {!hasSpend && !chart.hasComparison ? (
-          <div className="grid min-h-56 flex-1 place-items-center rounded-xl border border-dashed border-border px-4 text-center text-sm text-muted-foreground">
+          <div className="grid min-h-64 flex-1 place-items-center rounded-xl border border-dashed border-border px-4 text-center text-sm text-muted-foreground">
             No spending in {monthName(chart.month)} yet. Your pace will appear as purchases come in.
           </div>
         ) : (
-          <div
-            className="min-h-56 w-full flex-1"
-            data-testid="spending-chart"
-            role="img"
-            aria-label={`Cumulative spending in ${monthName(chart.month)}: ${formatCents(currentTotal)} so far, compared with last month and the three month average.`}
+          <ChartTable
+            className="flex flex-1 flex-col"
+            title="Cumulative spending by day"
+            columns={["Day", "This month", monthName(chart.lastMonth), "3-month average"]}
+            rows={chart.points.map((p) => [
+              `Day ${p.day}`,
+              { cents: p.current ?? 0 },
+              { cents: p.last ?? 0 },
+              { cents: p.average ?? 0 },
+            ])}
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chart.points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="day"
-                  tick={{ fill: "var(--text-faint)", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  interval="preserveStartEnd"
-                  minTickGap={24}
-                />
-                <YAxis
-                  tickFormatter={(v: number) => formatCents(v, { compact: true })}
-                  tick={{ fill: "var(--text-faint)", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={52}
-                />
-                <Tooltip
-                  cursor={{ stroke: "var(--text-faint)", strokeDasharray: "3 3" }}
-                  contentStyle={{
-                    background: "var(--surface-2)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 12,
-                    fontSize: 12,
-                  }}
-                  labelFormatter={(d) => `Day ${d}`}
-                  formatter={(v, name) => [
-                    formatCents(Number(v)),
-                    name === "current"
-                      ? "This month"
-                      : name === "last"
-                        ? monthName(chart.lastMonth)
-                        : "3-month average",
-                  ]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="average"
-                  stroke="var(--text-faint)"
-                  strokeOpacity={0.55}
-                  strokeWidth={1.5}
-                  dot={false}
-                  connectNulls={false}
-                  isAnimationActive={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="last"
-                  stroke="var(--text-muted)"
-                  strokeWidth={1.75}
-                  strokeDasharray="5 4"
-                  dot={false}
-                  connectNulls={false}
-                  isAnimationActive={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="current"
-                  stroke="var(--brand-from)"
-                  strokeWidth={2.5}
-                  dot={false}
-                  connectNulls={false}
-                  activeDot={{ r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+            <div
+              className="h-64 w-full"
+              data-testid="spending-chart"
+              role="img"
+              aria-label={`Cumulative spending in ${monthName(chart.month)}: ${formatCents(currentTotal)} so far, compared with last month and the three month average.`}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chart.points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fill: "var(--text-faint)", fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                    minTickGap={24}
+                  />
+                  <YAxis
+                    tickFormatter={(v: number) => formatCents(v, { compact: true })}
+                    tick={{ fill: "var(--text-faint)", fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={52}
+                  />
+                  <Tooltip
+                    cursor={{ stroke: "var(--text-faint)", strokeDasharray: "3 3" }}
+                    contentStyle={{
+                      background: "var(--surface-2)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 12,
+                      fontSize: 12,
+                    }}
+                    labelFormatter={(d) => `Day ${d}`}
+                    formatter={(v, name) => [
+                      formatCents(Number(v)),
+                      name === "current"
+                        ? "This month"
+                        : name === "last"
+                          ? monthName(chart.lastMonth)
+                          : "3-month average",
+                    ]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="average"
+                    stroke="var(--text-faint)"
+                    strokeOpacity={0.55}
+                    strokeWidth={1.5}
+                    dot={false}
+                    connectNulls={false}
+                    isAnimationActive={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="last"
+                    stroke="var(--text-muted)"
+                    strokeWidth={1.75}
+                    strokeDasharray="5 4"
+                    dot={false}
+                    connectNulls={false}
+                    isAnimationActive={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="current"
+                    stroke="var(--brand-from)"
+                    strokeWidth={2.5}
+                    dot={false}
+                    connectNulls={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </ChartTable>
         )}
       </CardContent>
     </Card>

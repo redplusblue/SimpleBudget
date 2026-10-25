@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { PRIVACY_INIT_SCRIPT } from "@/lib/privacy";
 import "./globals.css";
-
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "SimpleBudget", template: "%s · SimpleBudget" },
   description: "A self-hosted personal finance dashboard powered by SimpleFIN.",
+  applicationName: "SimpleBudget",
+  appleWebApp: { capable: true, title: "SimpleBudget", statusBarStyle: "black-translucent" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
@@ -23,7 +24,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: PRIVACY_INIT_SCRIPT }} />
+      </head>
+      <body className="font-sans">
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -92,7 +92,7 @@ export function AiSettingsPanel() {
           }}
         >
           <div role="note" className="flex gap-3 rounded-xl border border-border bg-surface-2/50 p-3 text-sm">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-link" aria-hidden />
             <p>
               <strong>Only aggregated data is sent</strong>: category totals, merchant totals, month-over-month changes
               and the insights shown on your Insights page. Account numbers, access URLs, raw bank descriptions, notes

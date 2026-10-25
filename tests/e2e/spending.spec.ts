@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectNoHorizontalOverflow } from "./helpers";
+import { expectNoHorizontalOverflow, revealLazy } from "./helpers";
 
 // The fixture data sits within the last ~45 days, so a 90-day window ending tomorrow always contains all of it.
 // Totals (dollars): spent 3,570.86 over 12 purchases (transfers and the pending items are counted correctly),
@@ -75,6 +75,7 @@ test.describe("spending API", () => {
 test.describe("spending page", () => {
   test("summary tiles show the totals and link to the right transactions", async ({ page }) => {
     await page.goto(`/spending?${WINDOW}`);
+    await revealLazy(page);
     await expect(page.getByTestId("tile-spent")).toContainText("$3,570.86");
     await expect(page.getByTestId("tile-income")).toContainText("$9,808.09");
     await expect(page.getByTestId("tile-count")).toContainText("12");
@@ -91,6 +92,7 @@ test.describe("spending page", () => {
 
   test("a merchant row opens the register on exactly that merchant", async ({ page }) => {
     await page.goto(`/spending?${WINDOW}`);
+    await revealLazy(page);
     await page
       .getByTestId("merchant-table")
       .getByRole("link", { name: /Landlord/ })
@@ -106,10 +108,13 @@ test.describe("spending page", () => {
 
   test("account rows and the weekday, calendar and trend sections render", async ({ page }) => {
     await page.goto(`/spending?${WINDOW}`);
+    await revealLazy(page);
     await expect(page.getByTestId("account-list")).toContainText("Total Checking");
     await expect(page.getByTestId("account-list")).toContainText("Sapphire Credit Card");
     await expect(page.getByTestId("weekday-chart")).toBeVisible();
     await expect(page.getByTestId("trends-chart")).toBeVisible();
+    await expect(page.getByTestId("weekday-chart").locator("svg.recharts-surface").first()).toBeVisible();
+    await expect(page.getByTestId("trends-chart").locator("svg.recharts-surface").first()).toBeVisible();
     await expect(page.getByTestId("heatmap")).toBeVisible();
     await expect(page.getByText("No recurring charges detected yet")).toBeVisible();
     await expect(page.getByRole("heading", { name: "By tag" })).toBeVisible();
@@ -126,6 +131,7 @@ test.describe("spending page", () => {
     const r = await (await request.get(`/api/spending?${WINDOW}`)).json();
     const spendDay = r.daily.find((d: { cents: number }) => d.cents > 0);
     await page.goto(`/spending?${WINDOW}`);
+    await revealLazy(page);
     await page
       .getByTestId("heatmap")
       .getByRole("link", { name: new RegExp("spent") })
@@ -133,6 +139,7 @@ test.describe("spending page", () => {
       .waitFor();
     // the heatmap shows one month at a time: open the month containing the first day with spending via the range
     await page.goto(`/spending?from=${spendDay.date}&to=${spendDay.date}`);
+    await revealLazy(page);
     await page.getByTestId("heatmap").getByRole("link").first().click();
     await expect(page).toHaveURL(new RegExp(`from=${spendDay.date}`));
     await expect(page).toHaveURL(new RegExp(`to=${spendDay.date}`));
@@ -141,6 +148,7 @@ test.describe("spending page", () => {
 
   test("the category chart toggles between donut and treemap", async ({ page }) => {
     await page.goto(`/spending?${WINDOW}`);
+    await revealLazy(page);
     await expect(page.getByTestId("category-donut")).toBeVisible();
     await page.getByRole("radio", { name: "Treemap" }).click();
     await expect(page.getByTestId("category-treemap")).toBeVisible();
@@ -151,6 +159,7 @@ test.describe("spending page", () => {
 
   test("the month picker moves between months and keeps the address in sync", async ({ page }) => {
     await page.goto("/spending?month=2026-03");
+    await revealLazy(page);
     await expect(page.getByTestId("range-label")).toHaveText("March 2026");
     await page.getByRole("button", { name: "Previous month" }).click();
     await expect(page).toHaveURL(/month=2026-02/);
@@ -164,11 +173,13 @@ test.describe("spending page", () => {
 
   test("the next-month arrow stops at the current month", async ({ page }) => {
     await page.goto("/spending");
+    await revealLazy(page);
     await expect(page.getByRole("button", { name: "Next month" })).toBeDisabled();
   });
 
   test("custom range: switch modes, pick dates, use a preset", async ({ page }) => {
     await page.goto("/spending?month=2026-03");
+    await revealLazy(page);
     await page.getByRole("radio", { name: "Custom" }).click();
     await expect(page.getByLabel("From date")).toBeVisible();
     await expect(page).toHaveURL(/from=2026-03-01/);
@@ -181,6 +192,7 @@ test.describe("spending page", () => {
 
   test("the page fits the screen", async ({ page }) => {
     await page.goto(`/spending?${WINDOW}`);
+    await revealLazy(page);
     await expect(page.getByTestId("trends-chart")).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });

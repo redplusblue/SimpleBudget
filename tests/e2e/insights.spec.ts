@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { expectNoHorizontalOverflow, insertExpense } from "./helpers";
+import { expectNoHorizontalOverflow, insertExpense, revealLazy } from "./helpers";
 
 // Shares the "targets" project's seeded server (it adds a couple of transactions with unique merchants).
 const DB = "./data/e2e-targets.db";
@@ -44,6 +44,7 @@ test("a duplicate-looking charge shows up on the Insights page and the dashboard
 
   // The dashboard teaser shows the top three (warnings first) and links to the rest.
   await page.goto("/");
+  await revealLazy(page);
   const teaser = page.getByRole("region", { name: "Insights" }).or(page.locator('[aria-labelledby="insights-title"]'));
   await expect(teaser.getByTestId("insight").first()).toBeVisible();
   expect(await teaser.getByTestId("insight").count()).toBeLessThanOrEqual(3);
@@ -57,6 +58,7 @@ test("the Insights page fits a phone", async ({ page }) => {
   await expect(page.getByTestId("insights-list")).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.goto("/");
+  await revealLazy(page);
   await expect(page.getByTestId("insights-teaser").or(page.getByText("Nothing notable right now."))).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

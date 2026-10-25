@@ -2,8 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { CreditCard } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
+import { LazyMount } from "@/components/lazy-mount";
+import { CardBoundary } from "@/components/error-boundary";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCategories } from "@/hooks/use-lookups";
@@ -15,9 +18,15 @@ import { InsightsTeaser } from "@/components/insights/insights-teaser";
 import { MonthGlanceCard } from "./month-glance-card";
 import { NetWorthCard } from "./net-worth-card";
 import { RecentTransactionsCard } from "./recent-transactions-card";
-import { SpendingPaceChart } from "./spending-pace-chart";
-import { TopCategoriesCard } from "./top-categories-card";
 import { UpcomingCard } from "./upcoming-card";
+
+// These two draw with the charting library; their code only downloads when they scroll near the screen.
+const SpendingPaceChart = dynamic(() => import("./spending-pace-chart").then((m) => m.SpendingPaceChart), {
+  ssr: false,
+});
+const TopCategoriesCard = dynamic(() => import("./top-categories-card").then((m) => m.TopCategoriesCard), {
+  ssr: false,
+});
 
 export const DASHBOARD_KEY = ["dashboard"] as const;
 
@@ -32,11 +41,13 @@ function DashboardSkeleton() {
   );
 }
 
-export function Dashboard() {
+export function Dashboard({ initialData }: { initialData?: DashboardPayload }) {
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: DASHBOARD_KEY,
     queryFn: () => fetchJson<DashboardPayload>("/api/dashboard"),
     staleTime: 30_000,
+    // Rendered on the server for the first paint; the client takes over once it is stale.
+    initialData,
   });
   const { data: categories = [] } = useCategories();
 
@@ -71,25 +82,55 @@ export function Dashboard() {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
       <div className="min-w-0 lg:col-span-8">
-        <NetWorthCard summary={data.netWorth} />
+        <CardBoundary name="Net worth">
+          <NetWorthCard summary={data.netWorth} />
+        </CardBoundary>
       </div>
       <div className="min-w-0 lg:col-span-4">
-        <MonthGlanceCard glance={data.glance} />
+        <CardBoundary name="This month">
+          <MonthGlanceCard glance={data.glance} />
+        </CardBoundary>
       </div>
       <div className="min-w-0 lg:col-span-8">
-        <SpendingPaceChart chart={data.spending} />
+        <LazyMount minHeight={380}>
+          <CardBoundary name="The spending chart">
+            <SpendingPaceChart chart={data.spending} />
+          </CardBoundary>
+        </LazyMount>
       </div>
       <div className="min-w-0 lg:col-span-4">
-        <TopCategoriesCard breakdown={data.categories} month={data.month} />
+        <LazyMount minHeight={380}>
+          <CardBoundary name="Top categories">
+            <TopCategoriesCard breakdown={data.categories} month={data.month} />
+          </CardBoundary>
+        </LazyMount>
       </div>
       <div className="min-w-0 lg:col-span-8">
-        <RecentTransactionsCard rows={data.recent} categories={categories} />
+        <LazyMount minHeight={420}>
+          <CardBoundary name="Recent transactions">
+            <RecentTransactionsCard rows={data.recent} categories={categories} />
+          </CardBoundary>
+        </LazyMount>
       </div>
       <div className="min-w-0 space-y-4 lg:col-span-4">
-        <TargetsCard targets={data.targets} month={data.month} />
-        <AccountBalancesCard groups={data.accounts} />
-        <UpcomingCard upcoming={data.upcoming} />
-        <InsightsTeaser top={data.insights.top} total={data.insights.total} />
+        <CardBoundary name="Targets">
+          <TargetsCard targets={data.targets} month={data.month} />
+        </CardBoundary>
+        <LazyMount minHeight={200}>
+          <CardBoundary name="Account balances">
+            <AccountBalancesCard groups={data.accounts} />
+          </CardBoundary>
+        </LazyMount>
+        <LazyMount minHeight={180}>
+          <CardBoundary name="Upcoming charges">
+            <UpcomingCard />
+          </CardBoundary>
+        </LazyMount>
+        <LazyMount minHeight={220}>
+          <CardBoundary name="Insights">
+            <InsightsTeaser />
+          </CardBoundary>
+        </LazyMount>
       </div>
     </div>
   );

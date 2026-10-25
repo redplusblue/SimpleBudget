@@ -113,7 +113,7 @@ export function SyncPill() {
               </p>
             )
           )}
-          <Link href="/settings/sync" className="block text-xs text-primary underline-offset-4 hover:underline">
+          <Link href="/settings/sync" className="block text-xs text-link underline-offset-4 hover:underline">
             Sync history & schedule
           </Link>
         </PopoverContent>

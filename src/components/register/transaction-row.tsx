@@ -21,6 +21,8 @@ export interface RowProps {
   /** Render the two-line mobile layout instead of the desktop columns. */
   mobile: boolean;
   selected: boolean;
+  /** The row the keyboard (j/k) is on. */
+  active?: boolean;
   selectionMode: boolean;
   onOpen: (id: number) => void;
   onToggleSelect: (id: number) => void;
@@ -86,6 +88,7 @@ function TransactionRowView({
   showBalance,
   mobile,
   selected,
+  active,
   selectionMode,
   onOpen,
   onToggleSelect,
@@ -176,9 +179,11 @@ function TransactionRowView({
       data-testid="txn-row"
       data-id={row.id}
       data-selected={selected || undefined}
+      data-active={active || undefined}
       className={cn(
         "cursor-pointer border-b border-border/60 px-3 transition-colors select-none hover:bg-surface-2/60 md:select-auto",
         selected && "bg-primary/10 hover:bg-primary/15",
+        active && "bg-surface-2 ring-2 ring-primary/60 ring-inset",
         row.pending && "bg-surface-2/30",
       )}
     >
