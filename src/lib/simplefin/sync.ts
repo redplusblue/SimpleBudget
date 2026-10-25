@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq } from "drizzle-orm";
 import type { Db, DbLike } from "@/db/open";
-import { accounts, balanceSnapshots, connections, syncRuns, transactions } from "@/db/schema";
+import { accounts, balanceSnapshots, connections, holdings, syncRuns, transactions } from "@/db/schema";
 import { getAccessUrl } from "@/lib/connections";
 import { localDateString } from "@/lib/finance/dates";
 import { guessAccountType } from "@/lib/finance/account-type";
@@ -20,7 +20,7 @@ import {
   setSyncProgress,
   type Window,
 } from "./limits";
-import { parseAccount, type ParsedAccount } from "./parse";
+import { parseAccount, type ParsedAccount, type ParsedHolding } from "./parse";
 import { applyRulesToNew } from "@/lib/rules/store";
 import { reconcilePending } from "./pending";
 import type { SfAccountSet } from "./schemas";
@@ -314,6 +314,7 @@ function applyResponse(
     orgSfinUrl ??= acct.orgSfinUrl;
 
     upsertAccount(db, connectionId, acct, now);
+    if (acct.holdings !== undefined) replaceHoldings(db, acct.id, acct.holdings, now);
     stats.accountIds.add(acct.id);
 
     db.insert(balanceSnapshots)
@@ -391,6 +392,24 @@ function applyResponse(
       .run();
   }
   return stats;
+}
+
+/** Makes the stored positions match what the bank just reported (new ones added, changed ones updated, sold ones removed). */
+function replaceHoldings(db: DbLike, accountId: string, list: ParsedHolding[], now: number) {
+  const keep = new Set(list.map((h) => h.sfId));
+  for (const old of db
+    .select({ id: holdings.id, sfId: holdings.sfId })
+    .from(holdings)
+    .where(eq(holdings.accountId, accountId))
+    .all())
+    if (!keep.has(old.sfId)) db.delete(holdings).where(eq(holdings.id, old.id)).run();
+  for (const h of list) {
+    const values = { ...h, accountId, updatedAt: now };
+    db.insert(holdings)
+      .values(values)
+      .onConflictDoUpdate({ target: [holdings.accountId, holdings.sfId], set: values })
+      .run();
+  }
 }
 
 function upsertAccount(db: DbLike, connectionId: number, a: ParsedAccount, now: number) {

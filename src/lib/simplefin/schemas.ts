@@ -17,6 +17,16 @@ export const transactionSchema = z.looseObject({
   extra: z.unknown().optional(),
 });
 
+export const holdingSchema = z.looseObject({
+  id: idLike,
+  currency: z.string().nullish(),
+  cost_basis: decimalLike.nullish(),
+  description: z.string().nullish(),
+  market_value: decimalLike,
+  shares: decimalLike.nullish(),
+  symbol: z.string().nullish(),
+});
+
 export const accountSchema = z.looseObject({
   org: z
     .looseObject({
@@ -43,6 +53,7 @@ export const accountSetSchema = z.looseObject({
   accounts: z.array(accountSchema).default([]),
 });
 
+export type SfHolding = z.infer<typeof holdingSchema>;
 export type SfTransaction = z.infer<typeof transactionSchema>;
 export type SfAccount = z.infer<typeof accountSchema>;
 export type SfAccountSet = z.infer<typeof accountSetSchema>;

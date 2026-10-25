@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ReconcileDialog } from "@/components/accounts/reconcile-dialog";
+import { HoldingsCard } from "@/components/accounts/holdings-card";
 import { ManualAccountControls } from "@/components/accounts/manual-account-controls";
 import { ManualTransactionDialog } from "@/components/accounts/manual-transaction-dialog";
 import { BalanceChart } from "@/components/charts/balance-chart";
@@ -114,6 +115,8 @@ export function AccountPage({ id }: { id: string }) {
           </div>
         </>
       )}
+
+      {data?.account.type === "investment" && <HoldingsCard accountId={id} currency={data.account.currency} />}
 
       <Register accountId={id} />
     </div>

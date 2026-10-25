@@ -201,3 +201,41 @@ export const insightsCache = sqliteTable("insights_cache", {
   payloadJson: text("payload_json").notNull(),
   createdAt: integer("created_at").notNull().default(nowSeconds),
 });
+
+/** Positions inside an investment account, as reported by SimpleFIN when the institution provides them. */
+export const holdings = sqliteTable(
+  "holdings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    /** SimpleFIN's id for the holding. */
+    sfId: text("sf_id").notNull(),
+    symbol: text("symbol").notNull().default(""),
+    description: text("description").notNull().default(""),
+    /** Decimal string; fractional shares are common. */
+    shares: text("shares").notNull().default("0"),
+    marketValueCents: integer("market_value_cents").notNull(),
+    costBasisCents: integer("cost_basis_cents"),
+    currency: text("currency").notNull().default("USD"),
+    updatedAt: integer("updated_at").notNull().default(nowSeconds),
+  },
+  (t) => [uniqueIndex("holdings_account_sf_unique").on(t.accountId, t.sfId)],
+);
+
+/** A savings goal, tracked against the balance of one account. */
+export const goals = sqliteTable("goals", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  accountId: text("account_id")
+    .notNull()
+    .references(() => accounts.id, { onDelete: "cascade" }),
+  targetCents: integer("target_cents").notNull(),
+  /** What in the account was already set aside before the goal began (progress counts balance above this). */
+  startCents: integer("start_cents").notNull().default(0),
+  /** `YYYY-MM-DD`, optional. */
+  targetDate: text("target_date"),
+  color: text("color"),
+  createdAt: integer("created_at").notNull().default(nowSeconds),
+});

@@ -1,5 +1,5 @@
 import { parseCents } from "@/lib/finance/cents";
-import type { SfAccount, SfTransaction } from "./schemas";
+import { holdingSchema, type SfAccount, type SfTransaction } from "./schemas";
 
 export interface ParsedTransaction {
   sfTxnId: string;
@@ -11,6 +11,42 @@ export interface ParsedTransaction {
   payee: string | null;
   memo: string | null;
   rawJson: string;
+}
+
+export interface ParsedHolding {
+  sfId: string;
+  symbol: string;
+  description: string;
+  shares: string;
+  marketValueCents: number;
+  costBasisCents: number | null;
+  currency: string;
+}
+
+/** Holdings the bank reports for an account; ones that can't be read are skipped rather than failing the sync. */
+export function parseHoldings(raw: unknown[] | undefined, accountCurrency: string): ParsedHolding[] | undefined {
+  if (raw === undefined) return undefined;
+  return raw.flatMap((item) => {
+    const h = holdingSchema.safeParse(item);
+    if (!h.success) return [];
+    try {
+      const v = h.data;
+      const cost = v.cost_basis == null || v.cost_basis === "" ? null : parseCents(v.cost_basis);
+      return [
+        {
+          sfId: v.id,
+          symbol: v.symbol?.trim() ?? "",
+          description: v.description?.trim() ?? "",
+          shares: v.shares == null || v.shares === "" ? "0" : v.shares,
+          marketValueCents: parseCents(v.market_value),
+          costBasisCents: cost,
+          currency: v.currency?.trim() || accountCurrency,
+        },
+      ];
+    } catch {
+      return [];
+    }
+  });
 }
 
 export interface ParsedAccount {
@@ -25,6 +61,8 @@ export interface ParsedAccount {
   balanceDate: number | null;
   /** `undefined` when the response carried no transaction list (e.g. balances-only). */
   transactions: ParsedTransaction[] | undefined;
+  /** `undefined` when the institution reports no holdings (most don't). */
+  holdings: ParsedHolding[] | undefined;
   /** Transactions dropped because their amount couldn't be parsed. */
   skippedTransactions: number;
 }
@@ -68,6 +106,7 @@ export function parseAccount(a: SfAccount): ParsedAccount {
     availableCents: availableRaw == null || availableRaw === "" ? null : parseCents(availableRaw),
     balanceDate: a["balance-date"] ?? null,
     transactions,
+    holdings: parseHoldings(a.holdings, a.currency),
     skippedTransactions: skipped,
   };
 }

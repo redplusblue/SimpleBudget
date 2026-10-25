@@ -12,7 +12,16 @@ import { eq, like } from "drizzle-orm";
 import { runMigrations } from "./migrate";
 import { createDb, openSqlite } from "./open";
 import { paletteColor } from "./palette";
-import { accounts, balanceSnapshots, categories, settings, tags, transactionTags, transactions } from "./schema";
+import {
+  accounts,
+  balanceSnapshots,
+  categories,
+  holdings,
+  settings,
+  tags,
+  transactionTags,
+  transactions,
+} from "./schema";
 import { localDateString } from "../lib/finance/dates";
 
 const DAY = 86_400;
@@ -305,6 +314,36 @@ async function main() {
           .onConflictDoNothing()
           .run();
         value /= 1 + between(-0.004, 0.0065); // walking backwards: drift up going forward
+      }
+    }
+
+    // A few positions in each investment account, as SimpleFIN reports them when an institution supports holdings.
+    const POSITIONS = [
+      ["VTI", "Vanguard Total Stock Market ETF", "92.5", 0.46, 0.82],
+      ["VXUS", "Vanguard Total International Stock ETF", "140.25", 0.2, 1.05],
+      ["BND", "Vanguard Total Bond Market ETF", "75", 0.14, 1.02],
+      ["AAPL", "Apple Inc.", "38", 0.12, 0.7],
+      ["CASH", "Cash and money market", "1", 0.08, 1],
+    ] as const;
+    for (const [accountId, total] of [
+      ["fake-ira", cents(42_150)],
+      ["fake-brokerage", cents(8_420.55)],
+    ] as const) {
+      for (const [symbol, description, shares, weight, costRatio] of POSITIONS) {
+        const value = Math.round(total * weight);
+        tx.insert(holdings)
+          .values({
+            accountId,
+            sfId: `${accountId}-${symbol}`,
+            symbol,
+            description,
+            shares,
+            marketValueCents: value,
+            costBasisCents: symbol === "CASH" ? null : Math.round(value * costRatio),
+            currency: "USD",
+            updatedAt: now,
+          })
+          .run();
       }
     }
 
