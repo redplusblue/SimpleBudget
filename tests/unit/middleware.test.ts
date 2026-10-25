@@ -28,6 +28,17 @@ describe("middleware", () => {
     "/api/categories",
     "/api/tags",
     "/api/dashboard",
+    "/api/categories/admin",
+    "/api/categories/1",
+    "/api/categories/1/merge",
+    "/api/categories/order",
+    "/api/tags/admin",
+    "/api/tags/1",
+    "/api/rules",
+    "/api/rules/1",
+    "/api/rules/order",
+    "/api/rules/preview",
+    "/api/rules/apply",
     "/api/networth",
   ])("returns 401 JSON for %s without a session", async (path) => {
     const res = await middleware(req(path));
