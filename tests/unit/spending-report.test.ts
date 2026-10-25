@@ -254,7 +254,7 @@ describe("12 month trends", () => {
     );
     const { trends } = report(db);
     expect(trends.series).toHaveLength(6);
-    expect(trends.series[5]).toMatchObject({ name: "Everything else", id: null });
+    expect(trends.series[5]).toMatchObject({ name: "Everything else", id: null, other: true });
     expect(trends.series[5].values[11]).toBe(1_000 + 2_000); // the two smallest
   });
 

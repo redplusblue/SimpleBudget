@@ -98,7 +98,10 @@ export interface WeekdayRow {
 }
 
 export interface TrendSeries {
+  /** `null` is "uncategorized" unless `other` is set. */
   id: number | null;
+  /** The combined "everything else" series, which doesn't correspond to a single category. */
+  other?: boolean;
   name: string;
   color: string;
   values: number[];

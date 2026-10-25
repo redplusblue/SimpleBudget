@@ -23,6 +23,7 @@ import type {
   SpendingReport,
   TagBreakdownRow,
   TrendReport,
+  TrendSeries,
   WeekdayRow,
 } from "./spending-report-types";
 import { getTransactionRows } from "./transactions-query";
@@ -361,7 +362,7 @@ export function getSpendingReport(db: DbLike, input: RangeInput, now: number, ti
     .sort((a, b) => b[1] - a[1])
     .slice(0, TOP_TREND_CATEGORIES)
     .map(([id]) => id);
-  const series = topIds.map((id) => ({
+  const series: TrendSeries[] = topIds.map((id) => ({
     id,
     ...meta(id),
     values: trendMonths.map((m) => monthCat.get(m)?.get(id) ?? 0),
@@ -370,7 +371,7 @@ export function getSpendingReport(db: DbLike, input: RangeInput, now: number, ti
     (m) => sumValues(monthCat.get(m) ?? new Map()) - series.reduce((s, x) => s + x.values[trendMonths.indexOf(m)], 0),
   );
   if (otherValues.some((v) => v > 0))
-    series.push({ id: null, name: "Everything else", color: OTHER_COLOR, values: otherValues });
+    series.push({ id: null, other: true, name: "Everything else", color: OTHER_COLOR, values: otherValues });
   const trends: TrendReport = {
     months: trendMonths,
     series,
