@@ -1,7 +1,18 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, GitMerge, Loader2, MoreHorizontal, Pencil, Plus, Tags, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  GitMerge,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Tags,
+  Target,
+  Trash2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CategoryBadge } from "@/components/category-icon";
@@ -20,9 +31,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TargetDialog, type TargetDialogState } from "@/components/targets/target-dialog";
 import { useInvalidateTaxonomy } from "@/hooks/use-invalidate";
 import { fetchJson, jsonBody } from "@/lib/fetch-json";
 import type { CategoryAdminRow } from "@/lib/finance/taxonomy-schemas";
+import type { TargetRow } from "@/lib/finance/targets-types";
 import { CategoryForm, type CategoryFormValues } from "./category-form";
 
 const KEY = ["categories-admin"] as const;
@@ -40,6 +53,15 @@ export function CategoriesPanel() {
   const invalidate = useInvalidateTaxonomy();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [error, setError] = useState<string | null>(null);
+  const [targetDialog, setTargetDialog] = useState<TargetDialogState | null>(null);
+  const targets = useQuery({
+    queryKey: ["targets"],
+    queryFn: async () => (await fetchJson<{ targets: TargetRow[] }>("/api/targets")).targets,
+  });
+  const openTarget = (r: CategoryAdminRow) => {
+    const existing = targets.data?.find((t) => t.kind === "category" && t.subjectId === r.id && t.month === null);
+    setTargetDialog(existing ? { target: existing } : { preset: { kind: "category", subjectId: r.id } });
+  };
 
   const query = useQuery({
     queryKey: KEY,
@@ -194,6 +216,9 @@ export function CategoriesPanel() {
                     <DropdownMenuItem onClick={() => setDialog({ kind: "edit", row: r })}>
                       <Pencil /> Edit
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openTarget(r)}>
+                      <Target /> Set monthly target…
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => archive.mutate(r)}>
                       {r.isArchived ? <ArchiveRestore /> : <Archive />} {r.isArchived ? "Restore" : "Archive"}
                     </DropdownMenuItem>
@@ -233,6 +258,8 @@ export function CategoriesPanel() {
           />
         )}
       </ResponsiveDialog>
+
+      <TargetDialog state={targetDialog} onClose={() => setTargetDialog(null)} />
 
       <MergeDialog
         row={dialog?.kind === "merge" ? dialog.row : null}

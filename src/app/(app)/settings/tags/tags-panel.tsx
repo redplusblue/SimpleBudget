@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Loader2, MoreHorizontal, Pencil, Plus, Tag, Trash2 } from "lucide-react";
+import { Loader2, MoreHorizontal, Pencil, Plus, Tag, Target, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
@@ -19,9 +19,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CHART_PALETTE } from "@/db/palette";
+import { TargetDialog, type TargetDialogState } from "@/components/targets/target-dialog";
 import { useInvalidateTaxonomy } from "@/hooks/use-invalidate";
 import { fetchJson, jsonBody } from "@/lib/fetch-json";
 import type { TagAdminRow } from "@/lib/finance/taxonomy-schemas";
+import type { TargetRow } from "@/lib/finance/targets-types";
 import { cn } from "@/lib/utils";
 
 const KEY = ["tags-admin"] as const;
@@ -33,6 +35,15 @@ export function TagsPanel() {
   const [editing, setEditing] = useState<TagAdminRow | null>(null);
   const [deleting, setDeleting] = useState<TagAdminRow | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [targetDialog, setTargetDialog] = useState<TargetDialogState | null>(null);
+  const targets = useQuery({
+    queryKey: ["targets"],
+    queryFn: async () => (await fetchJson<{ targets: TargetRow[] }>("/api/targets")).targets,
+  });
+  const openTarget = (t: TagAdminRow) => {
+    const existing = targets.data?.find((x) => x.kind === "tag" && x.subjectId === t.id && x.month === null);
+    setTargetDialog(existing ? { target: existing } : { preset: { kind: "tag", subjectId: t.id } });
+  };
 
   const query = useQuery({
     queryKey: KEY,
@@ -150,6 +161,9 @@ export function TagsPanel() {
                     <DropdownMenuItem onClick={() => setEditing(t)}>
                       <Pencil /> Edit
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openTarget(t)}>
+                      <Target /> Set monthly target…
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem variant="destructive" onClick={() => setDeleting(t)}>
                       <Trash2 /> Delete
@@ -161,6 +175,8 @@ export function TagsPanel() {
           </ul>
         )}
       </CardContent>
+
+      <TargetDialog state={targetDialog} onClose={() => setTargetDialog(null)} />
 
       <ResponsiveDialog open={editing !== null} onOpenChange={(o) => !o && close()} title="Edit tag">
         {editing && (

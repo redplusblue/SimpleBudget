@@ -3,6 +3,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { TargetsCard } from "@/components/targets/targets-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJson } from "@/lib/fetch-json";
@@ -92,6 +93,7 @@ export function SpendingPage() {
             {` · compared with ${data.range.previous.label}`}
           </p>
           <SummaryCards range={data.range} summary={data.summary} />
+          {data.range.month && <TargetsCard targets={data.targets} month={data.range.month} />}
           <div className="grid gap-4 lg:grid-cols-12">
             <div className="min-w-0 lg:col-span-7">
               <ComparisonCard range={data.range} rows={data.comparison} />

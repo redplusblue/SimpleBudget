@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCategories } from "@/hooks/use-lookups";
 import { fetchJson } from "@/lib/fetch-json";
 import type { DashboardPayload } from "@/lib/finance/dashboard-types";
+import { TargetsCard } from "@/components/targets/targets-card";
 import { AccountBalancesCard } from "./account-balances-card";
 import { MonthGlanceCard } from "./month-glance-card";
 import { NetWorthCard } from "./net-worth-card";
@@ -85,6 +86,7 @@ export function Dashboard() {
         <RecentTransactionsCard rows={data.recent} categories={categories} />
       </div>
       <div className="min-w-0 space-y-4 lg:col-span-4">
+        <TargetsCard targets={data.targets} month={data.month} />
         <AccountBalancesCard groups={data.accounts} />
         <UpcomingCard upcoming={data.upcoming} />
         <InsightsTeaser />
