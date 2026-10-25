@@ -3,9 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ArrowLeftRight, Plus, Wand2, X } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Money } from "@/components/money";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -248,16 +248,10 @@ function DrawerBody({ id, onNavigate }: { id: number; onNavigate: (id: number) =
                 )}
               </div>
 
-              <Button
-                variant="outline"
-                disabled
-                className="h-11 w-full justify-start gap-2 md:h-9"
-                title="Rules arrive in a later update"
-              >
-                <Wand2 className="size-4" /> Create rule from this…
-                <Badge variant="outline" className="ml-auto text-[10px]">
-                  Soon
-                </Badge>
+              <Button asChild variant="outline" className="h-11 w-full justify-start gap-2 md:h-9">
+                <Link href={`/rules?from=${tx.id}`}>
+                  <Wand2 className="size-4" /> Create rule from this…
+                </Link>
               </Button>
             </section>
 

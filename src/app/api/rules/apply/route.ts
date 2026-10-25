@@ -7,11 +7,16 @@ import { applyRules, getRule, RuleError } from "@/lib/rules/store";
 
 export const dynamic = "force-dynamic";
 
-const body = z.object({ ruleId: z.number().int().positive().optional(), overwrite: z.boolean().default(false) });
+const body = z.object({
+  ruleId: z.number().int().positive().optional(),
+  overwrite: z.boolean().default(false),
+  dryRun: z.boolean().default(false),
+});
 
 /**
  * Runs one rule (`ruleId`) or every enabled rule over existing transactions. By default only empty fields are
  * filled; `overwrite: true` lets rules replace values that are already set.
+ * `dryRun: true` only reports how many transactions would change.
  */
 export async function POST(request: Request) {
   const denied = await requireApiAuth();
@@ -26,7 +31,11 @@ export async function POST(request: Request) {
       if (!rule) throw new RuleError("not_found", "Rule not found");
       rules = [rule];
     }
-    const { matched, changed } = applyRules(db, { rules, overwrite: parsed.data.overwrite });
+    const { matched, changed } = applyRules(db, {
+      rules,
+      overwrite: parsed.data.overwrite,
+      dryRun: parsed.data.dryRun,
+    });
     return NextResponse.json({ matched, changed });
   } catch (e) {
     return errorResponse(e);
