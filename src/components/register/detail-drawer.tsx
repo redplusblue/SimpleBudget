@@ -1,10 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeftRight, Plus, Wand2, X } from "lucide-react";
+import { ArrowLeftRight, Pencil, Plus, Trash2, Wand2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Money } from "@/components/money";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,8 @@ import { fetchJson } from "@/lib/fetch-json";
 import type { TransactionPatchInput } from "@/lib/finance/transaction-schemas";
 import type { TransactionDetail } from "@/lib/finance/transaction-types";
 import { CategorySelect } from "./category-select";
+import { ManualTransactionDialog } from "@/components/accounts/manual-transaction-dialog";
+import { useRefreshMoney } from "@/hooks/use-refresh-money";
 import { SplitEditor } from "./split-editor";
 import { TagPicker } from "./tag-picker";
 import { txDetailKey, useUpdateTransaction } from "./use-transactions";
@@ -51,13 +54,21 @@ export function TransactionDrawer({
         side={mobile ? "bottom" : "right"}
         className={mobile ? "max-h-[92dvh] gap-0 rounded-t-2xl" : "w-[460px] gap-0 sm:max-w-[460px]"}
       >
-        {id !== null && <DrawerBody key={id} id={id} onNavigate={onNavigate} />}
+        {id !== null && <DrawerBody key={id} id={id} onNavigate={onNavigate} onClose={onClose} />}
       </SheetContent>
     </Sheet>
   );
 }
 
-function DrawerBody({ id, onNavigate }: { id: number; onNavigate: (id: number) => void }) {
+function DrawerBody({
+  id,
+  onNavigate,
+  onClose,
+}: {
+  id: number;
+  onNavigate: (id: number) => void;
+  onClose: () => void;
+}) {
   const {
     data: tx,
     isPending,
@@ -263,38 +274,44 @@ function DrawerBody({ id, onNavigate }: { id: number; onNavigate: (id: number) =
               </Button>
             </section>
 
-            <section aria-label="From your bank" className="space-y-2">
-              <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">From your bank</h3>
-              <p className="text-xs text-muted-foreground">
-                Imported data is read-only, so a re-sync never overwrites your edits.
-              </p>
-              <dl className="divide-y divide-border/60 rounded-xl border border-border px-3">
-                <Row label="Account">{tx.accountName}</Row>
-                <Row label={tx.pending ? "Purchased" : "Posted"}>{when(tx.pending ? tx.effectiveDate : tx.posted)}</Row>
-                {tx.transactedAt && !tx.pending && <Row label="Transacted">{when(tx.transactedAt)}</Row>}
-                <Row label="Amount">
-                  <Money cents={tx.amountCents} currency={tx.currency} />
-                </Row>
-                <Row label="Description">{tx.description}</Row>
-                {tx.payee && <Row label="Payee">{tx.payee}</Row>}
-                {tx.memo && <Row label="Memo">{tx.memo}</Row>}
-                <Row label="Status">{tx.pending ? "Pending" : "Posted"}</Row>
-                <Row label="Imported">{when(tx.importedAt)}</Row>
-              </dl>
-              <button
-                type="button"
-                onClick={() => setRawOpen((o) => !o)}
-                aria-expanded={rawOpen}
-                className="text-xs text-primary underline-offset-4 hover:underline"
-              >
-                {rawOpen ? "Hide" : "Show"} raw data
-              </button>
-              {rawOpen && (
-                <pre className="max-h-64 overflow-auto rounded-xl bg-surface-2 p-3 text-[11px] leading-relaxed">
-                  {prettyJson(tx.rawJson)}
-                </pre>
-              )}
-            </section>
+            {tx.source === "manual" && <ManualSection tx={tx} onClose={onClose} />}
+
+            {tx.source !== "manual" && (
+              <section aria-label="From your bank" className="space-y-2">
+                <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">From your bank</h3>
+                <p className="text-xs text-muted-foreground">
+                  Imported data is read-only, so a re-sync never overwrites your edits.
+                </p>
+                <dl className="divide-y divide-border/60 rounded-xl border border-border px-3">
+                  <Row label="Account">{tx.accountName}</Row>
+                  <Row label={tx.pending ? "Purchased" : "Posted"}>
+                    {when(tx.pending ? tx.effectiveDate : tx.posted)}
+                  </Row>
+                  {tx.transactedAt && !tx.pending && <Row label="Transacted">{when(tx.transactedAt)}</Row>}
+                  <Row label="Amount">
+                    <Money cents={tx.amountCents} currency={tx.currency} />
+                  </Row>
+                  <Row label="Description">{tx.description}</Row>
+                  {tx.payee && <Row label="Payee">{tx.payee}</Row>}
+                  {tx.memo && <Row label="Memo">{tx.memo}</Row>}
+                  <Row label="Status">{tx.pending ? "Pending" : "Posted"}</Row>
+                  <Row label="Imported">{when(tx.importedAt)}</Row>
+                </dl>
+                <button
+                  type="button"
+                  onClick={() => setRawOpen((o) => !o)}
+                  aria-expanded={rawOpen}
+                  className="text-xs text-primary underline-offset-4 hover:underline"
+                >
+                  {rawOpen ? "Hide" : "Show"} raw data
+                </button>
+                {rawOpen && (
+                  <pre className="max-h-64 overflow-auto rounded-xl bg-surface-2 p-3 text-[11px] leading-relaxed">
+                    {prettyJson(tx.rawJson)}
+                  </pre>
+                )}
+              </section>
+            )}
           </>
         )}
       </div>
@@ -331,5 +348,66 @@ function ToggleRow({
       </Label>
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
     </div>
+  );
+}
+
+/** Edit and delete for a transaction typed in by hand (bank transactions are read-only). */
+function ManualSection({ tx, onClose }: { tx: TransactionDetail; onClose: () => void }) {
+  const refresh = useRefreshMoney();
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const remove = useMutation({
+    mutationFn: () => fetchJson(`/api/transactions/${tx.id}/manual`, { method: "DELETE" }),
+    onSuccess: () => {
+      onClose();
+      refresh();
+      toast.success("Transaction deleted");
+    },
+    onError: () => toast.error("Couldn't delete that transaction"),
+  });
+  return (
+    <section aria-label="Added by hand" className="space-y-2">
+      <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Added by hand</h3>
+      <p className="text-xs text-muted-foreground">
+        This transaction isn&apos;t from a bank, so you can change its amount, date and description.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" className="h-11 md:h-9" onClick={() => setEditing(true)}>
+          <Pencil /> Edit details
+        </Button>
+        {confirming ? (
+          <>
+            <Button
+              variant="destructive"
+              className="h-11 md:h-9"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate()}
+            >
+              Delete it
+            </Button>
+            <Button variant="outline" className="h-11 md:h-9" onClick={() => setConfirming(false)}>
+              Keep
+            </Button>
+          </>
+        ) : (
+          <Button variant="ghost" className="h-11 text-negative md:h-9" onClick={() => setConfirming(true)}>
+            <Trash2 /> Delete
+          </Button>
+        )}
+      </div>
+      <ManualTransactionDialog
+        accountId={tx.accountId}
+        open={editing}
+        onOpenChange={setEditing}
+        editing={{
+          id: tx.id,
+          date: tx.localDate,
+          amountCents: tx.amountCents,
+          description: tx.description,
+          categoryId: tx.categoryId,
+          notes: tx.notes,
+        }}
+      />
+    </section>
   );
 }

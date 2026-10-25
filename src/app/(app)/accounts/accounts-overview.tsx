@@ -1,7 +1,9 @@
 "use client";
 
-import { CreditCard } from "lucide-react";
+import { CreditCard, Plus } from "lucide-react";
+import { useState } from "react";
 import Link from "next/link";
+import { ManualAccountDialog } from "@/components/accounts/manual-account-dialog";
 import { AccountCard } from "@/components/accounts/account-card";
 import { EmptyState } from "@/components/empty-state";
 import { Money } from "@/components/money";
@@ -10,6 +12,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAccountsOverview } from "@/hooks/use-lookups";
 
 export function AccountsOverview() {
+  const [adding, setAdding] = useState(false);
+  return (
+    <>
+      <div className="mb-5 flex justify-end">
+        <Button variant="outline" className="h-11 md:h-9" onClick={() => setAdding(true)}>
+          <Plus /> Add manual account
+        </Button>
+      </div>
+      <Overview />
+      <ManualAccountDialog open={adding} onOpenChange={setAdding} />
+    </>
+  );
+}
+
+function Overview() {
   const { data, isPending, isError, refetch } = useAccountsOverview();
 
   if (isPending) {
@@ -43,7 +60,7 @@ export function AccountsOverview() {
     return (
       <EmptyState
         icon={CreditCard}
-        title="No accounts yet. Connect SimpleFIN to import your accounts."
+        title="No accounts yet. Connect SimpleFIN to import your accounts, or add a manual account."
         action={
           <Button asChild variant="outline" size="sm">
             <Link href="/settings/connections">Connect SimpleFIN</Link>

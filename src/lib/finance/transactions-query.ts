@@ -2,7 +2,7 @@ import { and, desc, eq, exists, gt, inArray, isNull, lt, ne, or, sql, type SQL }
 import type { DbLike } from "@/db/open";
 import { accounts, tags, transactionTags, transactions } from "@/db/schema";
 import { parseCents } from "./cents";
-import { addDaysToDate, isDateString, zonedDayStart } from "./dates";
+import { addDaysToDate, isDateString, localDateString, zonedDayStart } from "./dates";
 import { effectiveDateSql, expenseCondition, incomeCondition, noSplitsSql } from "./sql";
 import {
   displayPayee,
@@ -130,6 +130,7 @@ const rowSelect = {
   memo: transactions.memo,
   payeeOverride: transactions.payeeOverride,
   categoryId: transactions.categoryId,
+  source: transactions.source,
   splitCount: sql<number>`(SELECT count(*) FROM transaction_splits sp WHERE sp.transaction_id = ${transactions.id})`,
   notes: transactions.notes,
   isTransfer: transactions.isTransfer,
@@ -281,7 +282,7 @@ export function getTransactionRows(db: DbLike, ids: number[]): TransactionRow[] 
   return ids.flatMap((id) => byId.get(id) ?? []);
 }
 
-export function getTransactionDetail(db: DbLike, id: number): TransactionDetail | undefined {
+export function getTransactionDetail(db: DbLike, id: number, timeZone = "UTC"): TransactionDetail | undefined {
   const selected = db
     .select({ ...rowSelect, rawJson: transactions.rawJson, importedAt: transactions.importedAt })
     .from(transactions)
@@ -311,5 +312,5 @@ export function getTransactionDetail(db: DbLike, id: number): TransactionDetail 
       };
     }
   }
-  return { ...row, rawJson, importedAt, pair };
+  return { ...row, rawJson, importedAt, pair, localDate: localDateString(row.effectiveDate, timeZone) };
 }

@@ -20,6 +20,7 @@ const row = (over: Partial<TransactionRow> = {}): TransactionRow => ({
   displayPayee: "Bank Payee",
   categoryId: null,
   splitCount: 0,
+  source: "simplefin",
   notes: null,
   isTransfer: false,
   transferPairId: null,

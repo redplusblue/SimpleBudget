@@ -24,6 +24,8 @@ export interface TransactionRow {
   /** Override, else bank payee, else description. */
   displayPayee: string;
   categoryId: number | null;
+  /** `manual` rows were typed in by hand and can be edited or deleted; `import` rows came from a file. */
+  source: "simplefin" | "import" | "manual";
   /** More than zero when the purchase is split across categories (then `categoryId` is null). */
   splitCount: number;
   notes: string | null;
@@ -67,6 +69,8 @@ export interface TransactionPage {
 }
 
 export interface TransactionDetail extends TransactionRow {
+  /** The effective date in the server's time zone, `YYYY-MM-DD`. */
+  localDate: string;
   rawJson: string;
   importedAt: number;
   pair: Pick<

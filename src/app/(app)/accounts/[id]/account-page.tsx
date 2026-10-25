@@ -2,10 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNowStrict, parse } from "date-fns";
-import { AlertTriangle, ArrowLeft, Check, Pencil, Settings2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Pencil, Plus, Settings2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ManualAccountControls } from "@/components/accounts/manual-account-controls";
+import { ManualTransactionDialog } from "@/components/accounts/manual-transaction-dialog";
 import { BalanceChart } from "@/components/charts/balance-chart";
 import { EmptyState } from "@/components/empty-state";
 import { Money } from "@/components/money";
@@ -119,6 +121,7 @@ export function AccountPage({ id }: { id: string }) {
 
 function Header({ id, detail, loading }: { id: string; detail: AccountDetail | undefined; loading: boolean }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [addingTxn, setAddingTxn] = useState(false);
   const patch = useAccountPatch(id);
 
   if (loading || !detail) {
@@ -141,7 +144,7 @@ function Header({ id, detail, loading }: { id: string; detail: AccountDetail | u
             onSave={(v) => patch.mutate({ displayName: v === a.name ? null : v })}
           />
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-            {a.orgName}
+            {a.isManual ? "Manual account" : a.orgName}
             <Badge variant="outline">{ACCOUNT_TYPE_LABELS[a.type]}</Badge>
             {a.isClosed && <Badge variant="outline">Closed</Badge>}
             {a.isHidden && <Badge variant="outline">Hidden</Badge>}
@@ -166,6 +169,14 @@ function Header({ id, detail, loading }: { id: string; detail: AccountDetail | u
           </span>
         )}
       </div>
+      {a.isManual && (
+        <>
+          <Button variant="outline" className="h-11 md:h-9" onClick={() => setAddingTxn(true)}>
+            <Plus /> Add transaction
+          </Button>
+          <ManualTransactionDialog accountId={a.id} open={addingTxn} onOpenChange={setAddingTxn} />
+        </>
+      )}
       {a.stale && !a.isClosed && (
         <p className="flex items-center gap-1.5 text-sm text-warning">
           <AlertTriangle className="size-4 shrink-0" aria-hidden />
@@ -462,6 +473,9 @@ function AccountSettings({
             </p>
           )}
         </div>
+        {a.isManual && (
+          <ManualAccountControls accountId={a.id} balanceCents={a.balanceCents} onClose={() => onOpenChange(false)} />
+        )}
         <div className="space-y-3 rounded-xl border border-border p-3">
           <SwitchRow
             id="acct-hidden"

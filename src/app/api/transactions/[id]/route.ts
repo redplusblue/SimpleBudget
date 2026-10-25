@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/db/client";
 import { requireApiAuth } from "@/lib/auth";
+import { getEnv } from "@/lib/env";
 import { transactionPatchSchema } from "@/lib/finance/transaction-schemas";
 import { getTransactionDetail } from "@/lib/finance/transactions-query";
 import { UpdateError, updateTransaction } from "@/lib/finance/transactions-update";
@@ -15,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (denied) return denied;
   const id = idSchema.safeParse((await params).id);
   if (!id.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
-  const detail = getTransactionDetail(getDb(), id.data);
+  const detail = getTransactionDetail(getDb(), id.data, getEnv().TZ);
   if (!detail) return NextResponse.json({ error: "not_found" }, { status: 404 });
   return NextResponse.json({ transaction: detail });
 }
@@ -39,5 +40,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: e.code, message: e.message }, { status: e.code === "not_found" ? 404 : 400 });
     throw e;
   }
-  return NextResponse.json({ transaction: getTransactionDetail(db, id.data) });
+  return NextResponse.json({ transaction: getTransactionDetail(db, id.data, getEnv().TZ) });
 }
