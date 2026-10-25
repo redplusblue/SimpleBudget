@@ -19,6 +19,7 @@ import { fetchJson } from "@/lib/fetch-json";
 import type { TransactionPatchInput } from "@/lib/finance/transaction-schemas";
 import type { TransactionDetail } from "@/lib/finance/transaction-types";
 import { CategorySelect } from "./category-select";
+import { SplitEditor } from "./split-editor";
 import { TagPicker } from "./tag-picker";
 import { txDetailKey, useUpdateTransaction } from "./use-transactions";
 
@@ -144,6 +145,13 @@ function DrawerBody({ id, onNavigate }: { id: number; onNavigate: (id: number) =
                   categories={categories}
                   onChange={(c) => save({ categoryId: c })}
                   aria-label="Category"
+                  splitLabel={tx.splitCount ? `Split (${tx.splitCount})` : undefined}
+                />
+                <SplitEditor
+                  transactionId={tx.id}
+                  amountCents={tx.amountCents}
+                  currency={tx.currency}
+                  categories={categories}
                 />
               </div>
 

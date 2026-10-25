@@ -193,6 +193,7 @@ function TransactionRowView({
             <div className="flex items-center gap-2">
               <CategorySelect
                 value={row.categoryId}
+                splitLabel={row.splitCount ? `Split (${row.splitCount})` : undefined}
                 categories={categories}
                 onChange={(c) => onCategoryChange(row.id, c)}
                 compact
@@ -216,6 +217,7 @@ function TransactionRowView({
           </div>
           <CategorySelect
             value={row.categoryId}
+            splitLabel={row.splitCount ? `Split (${row.splitCount})` : undefined}
             categories={categories}
             onChange={(c) => onCategoryChange(row.id, c)}
             compact

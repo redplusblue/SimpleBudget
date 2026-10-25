@@ -24,6 +24,7 @@ export function CategorySelect({
   className,
   "aria-label": ariaLabel = "Category",
   allowNone = true,
+  splitLabel,
 }: {
   value: number | null;
   categories: CategoryOption[];
@@ -32,6 +33,8 @@ export function CategorySelect({
   className?: string;
   "aria-label"?: string;
   allowNone?: boolean;
+  /** Shown instead of "Uncategorized" for a purchase split across categories. */
+  splitLabel?: string;
 }) {
   const current = categories.find((c) => c.id === value);
   // Archived categories stay out of the list, except the one this row is already filed under.
@@ -56,7 +59,7 @@ export function CategorySelect({
       <span className="truncate">{current.name}</span>
     </span>
   ) : (
-    "Uncategorized"
+    (splitLabel ?? "Uncategorized")
   );
   if (!armed) {
     return (

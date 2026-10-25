@@ -101,6 +101,7 @@ export function useUpdateTransaction() {
     },
     onSuccess: (data, { id }) => {
       qc.setQueryData(txDetailKey(id), data.transaction);
+      qc.invalidateQueries({ queryKey: ["splits", id] });
       refreshAccountViews(qc);
     },
   });

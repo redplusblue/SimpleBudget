@@ -13,7 +13,10 @@ export function applyPatchToRow(
   tagsById: Map<number, TagChip>,
 ): TransactionRow {
   const next = { ...row };
-  if (patch.categoryId !== undefined) next.categoryId = patch.categoryId;
+  if (patch.categoryId !== undefined) {
+    next.categoryId = patch.categoryId;
+    next.splitCount = 0; // choosing a category replaces any split
+  }
   if (patch.notes !== undefined) next.notes = blankToNull(patch.notes);
   if (patch.payeeOverride !== undefined) next.payeeOverride = blankToNull(patch.payeeOverride);
   if (patch.isExcluded !== undefined) next.isExcluded = patch.isExcluded;
@@ -37,7 +40,10 @@ export function applyBulkPatchToRow(
   tagsById: Map<number, TagChip>,
 ): TransactionRow {
   const next = { ...row };
-  if (patch.categoryId !== undefined) next.categoryId = patch.categoryId;
+  if (patch.categoryId !== undefined) {
+    next.categoryId = patch.categoryId;
+    next.splitCount = 0; // choosing a category replaces any split
+  }
   if (patch.isExcluded !== undefined) next.isExcluded = patch.isExcluded;
   if (patch.isReviewed !== undefined) next.isReviewed = patch.isReviewed;
   if (patch.addTagIds?.length || patch.removeTagIds?.length) {

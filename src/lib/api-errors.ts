@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { AiConfigError } from "@/lib/llm/config";
 import { LlmError } from "@/lib/llm/types";
+import { SplitError } from "@/lib/finance/splits";
 import { TargetError } from "@/lib/finance/targets";
 import { TaxonomyError } from "@/lib/finance/taxonomy-admin";
 import { UpdateError } from "@/lib/finance/transactions-update";
@@ -22,6 +23,7 @@ export function errorResponse(e: unknown): NextResponse {
     return NextResponse.json({ error: "ai_unavailable", kind: e.kind, message: e.message }, { status: 502 });
   }
   if (
+    e instanceof SplitError ||
     e instanceof AiConfigError ||
     e instanceof TaxonomyError ||
     e instanceof TargetError ||
