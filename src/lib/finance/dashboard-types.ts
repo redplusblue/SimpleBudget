@@ -1,5 +1,6 @@
 // Client-safe shapes for GET /api/dashboard.
 import type { AccountGroup } from "./accounts-overview";
+import type { RecurringItem } from "./recurring-types";
 import type { NetWorthSummary } from "./networth";
 import type { TransactionRow } from "./transaction-types";
 
@@ -57,6 +58,19 @@ export interface CategoryBreakdown {
   otherCents: number;
 }
 
+export interface UpcomingCharge extends RecurringItem {
+  /** Days from today until the expected date (negative when it's late). */
+  inDays: number;
+}
+
+export interface UpcomingSummary {
+  items: UpcomingCharge[];
+  /** Everything detected as recurring, per month. */
+  monthlyTotalCents: number;
+  /** How many active recurring charges were detected in total. */
+  activeCount: number;
+}
+
 export interface DashboardPayload {
   month: string;
   generatedAt: number;
@@ -67,5 +81,6 @@ export interface DashboardPayload {
   spending: SpendingChart;
   categories: CategoryBreakdown;
   recent: TransactionRow[];
+  upcoming: UpcomingSummary;
   accounts: AccountGroup[];
 }

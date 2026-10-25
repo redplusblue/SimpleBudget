@@ -2,6 +2,7 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
 import { transactions } from "@/db/schema";
 import { addDaysToDate, daysInMonth, localDateString, shiftMonth } from "./dates";
+import type { UpcomingCharge } from "./dashboard-types";
 import type { Cadence, RecurringItem, RecurringReport } from "./recurring-types";
 import { merchantName } from "./spending-report";
 import { effectiveDateSql, expenseCondition } from "./sql";
@@ -181,11 +182,6 @@ export function detectRecurring(db: DbLike, now: number, timeZone: string): Recu
   const inactive = items.filter((i) => !i.active).sort((a, b) => (a.lastDate < b.lastDate ? 1 : -1));
   const monthlyTotalCents = active.reduce((s, i) => s + i.monthlyCostCents, 0);
   return { items: active, inactive, monthlyTotalCents, yearlyTotalCents: monthlyTotalCents * 12 };
-}
-
-export interface UpcomingCharge extends RecurringItem {
-  /** Whole days from today until the expected date (negative when late). */
-  inDays: number;
 }
 
 /** Active charges expected within `days` days (late ones first), for the dashboard's Upcoming card. */

@@ -176,6 +176,31 @@ describe("getDashboard", () => {
     expect(getDashboard(db, { month: "2026-09", now: NOW, timeZone: TZ }).glance.spentCents).toBe(79_000);
   });
 
+  it("includes upcoming recurring charges and their monthly total", () => {
+    const db = freshDb();
+    addAccount(db, "a");
+    ["2026-07-05", "2026-08-05", "2026-09-05", "2026-10-05"].forEach((d) =>
+      addTxn(db, "a", { posted: at(d), amountCents: -1_549, description: "NETFLIX.COM LOS GATOS CA" }),
+    );
+    ["2026-07-30", "2026-08-30", "2026-09-30"].forEach((d) =>
+      addTxn(db, "a", { posted: at(d), amountCents: -999, description: "CLOUD STORAGE" }),
+    );
+    const d = getDashboard(db, { now: NOW, timeZone: TZ });
+    expect(d.upcoming.activeCount).toBe(2);
+    expect(d.upcoming.monthlyTotalCents).toBe(1_549 + 999);
+    expect(d.upcoming.items.map((u) => [u.name, u.nextDate, u.inDays])).toEqual(
+      [
+        ["NETFLIX.COM", "2026-11-05", 12],
+        ["CLOUD STORAGE", "2026-10-30", 6],
+      ].sort((a, b) => (a[1] as string).localeCompare(b[1] as string)),
+    );
+    expect(getDashboard(freshDb(), { now: NOW, timeZone: TZ }).upcoming).toEqual({
+      items: [],
+      monthlyTotalCents: 0,
+      activeCount: 0,
+    });
+  });
+
   it("answers in well under 300 ms with 10,000 transactions", () => {
     const db = freshDb();
     addAccount(db, "a", { balanceCents: 1_000_000 });
