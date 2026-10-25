@@ -34,11 +34,13 @@ export function BulkBar({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="none">Uncategorized</SelectItem>
-          {categories.map((c) => (
-            <SelectItem key={c.id} value={String(c.id)}>
-              {c.name}
-            </SelectItem>
-          ))}
+          {categories
+            .filter((c) => !c.isArchived)
+            .map((c) => (
+              <SelectItem key={c.id} value={String(c.id)}>
+                {c.name}
+              </SelectItem>
+            ))}
         </SelectContent>
       </Select>
       <TagPicker onPick={(tag) => onApply({ addTagIds: [tag.id] })}>

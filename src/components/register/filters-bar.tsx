@@ -165,6 +165,7 @@ function FilterControls({
             {categories.map((c) => (
               <SelectItem key={c.id} value={String(c.id)}>
                 {c.name}
+                {c.isArchived ? " (archived)" : ""}
               </SelectItem>
             ))}
           </SelectContent>

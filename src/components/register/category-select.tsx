@@ -34,6 +34,8 @@ export function CategorySelect({
   allowNone?: boolean;
 }) {
   const current = categories.find((c) => c.id === value);
+  // Archived categories stay out of the list, except the one this row is already filed under.
+  const options = categories.filter((c) => !c.isArchived || c.id === value);
   // Mounting a Radix Select per row is the most expensive part of rendering a long list, so compact
   // (in-row) pickers start as a lightweight button and only become a real Select once used.
   const [armed, setArmed] = useState(!compact);
@@ -109,11 +111,12 @@ export function CategorySelect({
         </SelectTrigger>
         <SelectContent>
           {allowNone && <SelectItem value={NONE}>Uncategorized</SelectItem>}
-          {categories.map((c) => (
+          {options.map((c) => (
             <SelectItem key={c.id} value={String(c.id)}>
               <span className="flex items-center gap-2">
                 <Dot color={c.color} />
                 {c.name}
+                {c.isArchived && <span className="text-xs text-muted-foreground">(archived)</span>}
               </span>
             </SelectItem>
           ))}
