@@ -99,7 +99,7 @@ describe("merging categories", () => {
       actions: { categoryId: from },
     });
 
-    expect(mergeCategories(db, from, into)).toEqual({ moved: 2 });
+    expect(mergeCategories(db, from, into)).toEqual({ moved: 2, targetsDropped: 0 });
     const cat = (id: number) => db.select().from(transactions).where(eq(transactions.id, id)).get()!.categoryId;
     expect(moved.map((t) => cat(t.id))).toEqual([into, into]);
     expect(cat(stays.id)).toBe(into);
@@ -107,6 +107,31 @@ describe("merging categories", () => {
     expect(db.select().from(categories).where(eq(categories.id, from)).get()).toBeUndefined();
     expect(db.select().from(budgets).get()!.categoryId).toBe(into);
     expect(getRule(db, rule.id)!.actions.categoryId).toBe(into);
+  });
+
+  it("keeps the destination's own target when both categories have one for the same scope", () => {
+    const db = freshDb();
+    const [from, into] = [categoryId(db, "Dining"), categoryId(db, "Groceries")];
+    db.insert(budgets)
+      .values([
+        { categoryId: from, amountCents: 10_000 }, // recurring, clashes with the destination's
+        { categoryId: into, amountCents: 50_000 },
+        { categoryId: from, month: "2026-10", amountCents: 20_000 }, // no clash: moves over
+      ])
+      .run();
+    expect(mergeCategories(db, from, into)).toEqual({ moved: 0, targetsDropped: 1 });
+    const rows = db
+      .select()
+      .from(budgets)
+      .all()
+      .map((b) => [b.categoryId, b.month, b.amountCents]);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        [into, null, 50_000],
+        [into, "2026-10", 20_000],
+      ]),
+    );
+    expect(rows).toHaveLength(2);
   });
 
   it("validates ids", () => {

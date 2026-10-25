@@ -15,6 +15,13 @@
       "when": 1792888749674,
       "tag": "0001_merchant_key",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792890893346,
+      "tag": "0002_budget_integrity",
+      "breakpoints": true
     }
   ]
 }

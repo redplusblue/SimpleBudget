@@ -1,4 +1,4 @@
-import { count, eq, inArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
 import { budgets, categories, tags, transactionTags, transactions } from "@/db/schema";
 import { scrubCategoryFromRules, scrubTagFromRules } from "@/lib/rules/store";
@@ -99,6 +99,8 @@ export function reorderCategories(db: DbLike, ids: number[]): void {
 
 export interface MergeResult {
   moved: number;
+  /** Targets of the merged category dropped because the destination already had one for the same scope. */
+  targetsDropped: number;
 }
 
 /** Moves every transaction (and budget and rule) from `from` to `into`, then deletes `from`. */
@@ -115,10 +117,24 @@ export function mergeCategories(db: DbLike, from: number, into: number): MergeRe
       .where(eq(transactions.categoryId, from))
       .returning({ id: transactions.id })
       .all().length;
-    tx.update(budgets).set({ categoryId: into }).where(eq(budgets.categoryId, from)).run();
+    // Targets follow the merge; where the destination already has one for the same scope, its own target wins.
+    let targetsDropped = 0;
+    for (const b of tx.select().from(budgets).where(eq(budgets.categoryId, from)).all()) {
+      const clash = tx
+        .select({ id: budgets.id })
+        .from(budgets)
+        .where(and(eq(budgets.categoryId, into), b.month === null ? isNull(budgets.month) : eq(budgets.month, b.month)))
+        .get();
+      if (clash) {
+        tx.delete(budgets).where(eq(budgets.id, b.id)).run();
+        targetsDropped++;
+      } else {
+        tx.update(budgets).set({ categoryId: into }).where(eq(budgets.id, b.id)).run();
+      }
+    }
     scrubCategoryFromRules(tx, from, into);
     tx.delete(categories).where(eq(categories.id, from)).run();
-    return { moved };
+    return { moved, targetsDropped };
   });
 }
 
