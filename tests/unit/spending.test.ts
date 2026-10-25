@@ -183,7 +183,7 @@ describe("getDashboard", () => {
     createTarget(db, { kind: "category", subjectId: categoryId(db, "Groceries"), amountCents: 20_000 });
     const d = getDashboard(db, { now: NOW, timeZone: TZ });
     expect(d.targets).toHaveLength(1);
-    expect(d.targets[0]).toMatchObject({ name: "Groceries", spentCents: 15_000, status: "ok" });
+    expect(d.targets[0]).toMatchObject({ name: "Groceries", spentCents: 25_000, status: "over" }); // 250 of 200
     // past months are measured too, without a projection
     expect(getDashboard(db, { month: "2026-09", now: NOW, timeZone: TZ }).targets[0]).toMatchObject({
       spentCents: 8_000,
