@@ -130,3 +130,17 @@
 - **Streaming:** the summary endpoint streams newline-delimited JSON events (text, done, error) so a failure mid-answer can still be reported; questions return one JSON answer.
 - **Failures degrade:** every provider problem becomes a short message (bad key, rate limit, declined, unreachable) next to a reminder that the insights are unaffected. Nothing in the app depends on AI being on.
 - **Dev logging:** with `NODE_ENV=development` the outgoing payload and tool results are printed; never the key.
+
+## Phase 10: Actual Budget parity and migration
+
+- **Splits.** A split transaction keeps no category of its own; its parts carry them. Category views (dashboard breakdown, spending report, targets, register category filter) count the parts, while totals, merchants, accounts and days still use the whole purchase. Picking a single category (inline, drawer, bulk, manual edit) replaces the split; rules never overwrite one; a SQLite trigger drops a split if the amount changes (a bank revising a pending charge), because it would no longer add up. Splits must have the same sign as the purchase. Income-category flags are not consulted per part (the parent decides whether it is an expense).
+- **Manual accounts.** `accounts.is_manual`, no connection; sync only touches accounts the bank returns, so they are ignored by construction (tested). Adding, editing or deleting a manual transaction moves the balance by the difference and writes today's snapshot; "Set balance" overrides it after counting the cash. They are never "stale". Only transactions with `source='manual'` can be edited or deleted this way.
+- **Reconcile** compares a statement balance with the app's own records at the end of that local day (today's balance minus everything posted later, pending left out, the same arithmetic as the register's running balance). Only a matching period can be marked reviewed.
+- **Import.**
+  - Accepts Actual's CSV export directly (Account, Date, Payee, Notes, Category, Amount) or any CSV via column mapping (signed amount or debit/credit columns, three date formats, optional sign inversion).
+  - Matching: same account, same amount, dates within 2 days, one-to-one, nearest first. **Matches only fill empty fields** (category, notes) instead of overwriting, so work you've already done in SimpleBudget is never lost. This is my reading of "copy over only category/notes".
+  - Non-matches are inserted (`source='import'`) only if they are older than the account's synced history; non-matches inside it are skipped as probable duplicates and counted in the preview.
+  - New categories are created; a category that only ever receives money is marked income. Imported rows are marked reviewed (you already reviewed them in Actual). Account balances are not changed by imported history. Rules and transfer detection run on inserted rows.
+  - Re-importing the same file changes nothing (rows match what the first run inserted).
+- **Export.** CSV of every transaction (formulas defused so spreadsheets don't execute payees), and a consistent SQLite copy via `VACUUM INTO`. The backup contains the encrypted bank access URL and the password hash; the page says so.
+- **Not done:** Actual's budget-envelope data and category groups are not part of its transaction CSV, so they aren't imported.

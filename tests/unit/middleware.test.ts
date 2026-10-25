@@ -52,6 +52,8 @@ describe("middleware", () => {
     "/api/accounts/x/reconcile",
     "/api/export/transactions",
     "/api/export/backup",
+    "/api/import/preview",
+    "/api/import/commit",
     "/api/targets",
     "/api/targets/1",
     "/api/recurring",

@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { AiConfigError } from "@/lib/llm/config";
 import { LlmError } from "@/lib/llm/types";
 import { ManualError } from "@/lib/finance/manual";
+import { ImportError } from "@/lib/import/plan";
 import { ReconcileError } from "@/lib/finance/reconcile";
 import { SplitError } from "@/lib/finance/splits";
 import { TargetError } from "@/lib/finance/targets";
@@ -25,6 +26,7 @@ export function errorResponse(e: unknown): NextResponse {
     return NextResponse.json({ error: "ai_unavailable", kind: e.kind, message: e.message }, { status: 502 });
   }
   if (
+    e instanceof ImportError ||
     e instanceof ReconcileError ||
     e instanceof ManualError ||
     e instanceof SplitError ||
