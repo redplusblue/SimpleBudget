@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/db/client";
 import { ACCOUNT_TYPES, accounts } from "@/db/schema";
+import { errorResponse } from "@/lib/api-errors";
 import { requireApiAuth } from "@/lib/auth";
+import { deleteManualAccount } from "@/lib/finance/manual";
 import { getEnv } from "@/lib/env";
 import { getAccountDetail } from "@/lib/finance/accounts-overview";
 
@@ -58,4 +60,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .get();
   if (!updated) return NextResponse.json({ error: "not_found" }, { status: 404 });
   return NextResponse.json({ account: updated });
+}
+
+/** Deletes a manual account and its transactions. Accounts synced from a bank are removed with their connection instead. */
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireApiAuth();
+  if (denied) return denied;
+  try {
+    deleteManualAccount(getDb(), decodeURIComponent((await params).id));
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return errorResponse(e);
+  }
 }

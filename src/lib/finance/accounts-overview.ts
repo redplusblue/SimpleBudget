@@ -30,6 +30,8 @@ export interface AccountSummary {
   isClosed: boolean;
   excludeFromNetWorth: boolean;
   color: string | null;
+  /** An offline account the user keeps by hand; it is never synced, so it is never "stale". */
+  isManual: boolean;
   creditLimitCents: number | null;
   lowBalanceCents: number | null;
   /** Balance hasn't been refreshed by the bank in over 3 days. */
@@ -70,7 +72,8 @@ function toSummary(a: typeof accounts.$inferSelect, now: number): AccountSummary
     creditLimitCents: a.creditLimitCents,
     lowBalanceCents: a.lowBalanceCents,
     color: a.color,
-    stale: a.balanceDate === null || now - a.balanceDate > STALE_AFTER_SECONDS,
+    isManual: a.isManual,
+    stale: !a.isManual && (a.balanceDate === null || now - a.balanceDate > STALE_AFTER_SECONDS),
   };
 }
 

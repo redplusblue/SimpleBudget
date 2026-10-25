@@ -23,6 +23,7 @@ import {
   requestsToday,
   setSyncProgress,
 } from "@/lib/simplefin/limits";
+import { createManualAccount, createManualTransaction } from "@/lib/finance/manual";
 import { runSync, startSync, type SyncResult } from "@/lib/simplefin/sync";
 import { ACCESS_URL, DAY, mockBank, NOW, type MockBank } from "../helpers/simplefin-mock";
 
@@ -634,5 +635,23 @@ describe("rules during sync", () => {
     const before = allTxns(db);
     await sync(db, bank);
     expect(allTxns(db)).toEqual(before);
+  });
+});
+
+describe("manual accounts", () => {
+  it("are left completely alone by a sync", async () => {
+    const { db, bank } = setup();
+    const id = createManualAccount(db, { name: "Wallet", balanceCents: 20_000 }, NOW, "UTC");
+    const t = createManualTransaction(
+      db,
+      id,
+      { date: "2026-10-01", amountCents: -1_500, description: "Lunch" },
+      NOW,
+      "UTC",
+    );
+    await sync(db, bank);
+    await sync(db, bank, { mode: "incremental", trigger: "manual" });
+    expect(acct(db, id)).toMatchObject({ isManual: true, balanceCents: 18_500, connectionId: null });
+    expect(allTxns(db).find((x) => x.id === t)).toMatchObject({ source: "manual", amountCents: -1_500 });
   });
 });
