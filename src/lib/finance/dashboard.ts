@@ -6,6 +6,7 @@ import type { DashboardPayload } from "./dashboard-types";
 import { currentMonth, localDateString } from "./dates";
 import { detectRecurring, upcomingCharges } from "./recurring";
 import { DEFAULT_NET_WORTH_RANGE, getNetWorthSummary } from "./networth";
+import { getTargetProgress } from "./targets";
 import { getCategoryBreakdown, getMonthlySpending } from "./spending";
 import { queryTransactions } from "./transactions-query";
 
@@ -34,6 +35,7 @@ export function getDashboard(db: DbLike, opts: { month?: string; now: number; ti
       monthlyTotalCents: recurring.monthlyTotalCents,
       activeCount: recurring.items.length,
     },
+    targets: getTargetProgress(db, month, now, timeZone),
     accounts: getAccountsOverview(db, now, timeZone),
   };
 }

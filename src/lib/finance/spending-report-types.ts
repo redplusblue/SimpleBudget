@@ -1,4 +1,5 @@
 // Client-safe shapes for GET /api/spending.
+import type { TargetProgress } from "./targets-types";
 
 export interface ReportRange {
   kind: "month" | "custom";
@@ -115,6 +116,8 @@ export interface TrendReport {
 }
 
 export interface SpendingReport {
+  /** Targets for the month being viewed (month ranges only); empty when there are none. */
+  targets: TargetProgress[];
   range: ReportRange;
   summary: ReportSummary;
   comparison: CategoryComparison[];

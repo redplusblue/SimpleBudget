@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { zonedDayStart } from "@/lib/finance/dates";
+import { createTarget } from "@/lib/finance/targets";
 import { getSpendingReport, MAX_CUSTOM_DAYS, ReportError, resolveRange } from "@/lib/finance/spending-report";
 import { transactionTags } from "@/db/schema";
 import { addAccount, addTag, addTxn, categoryId, freshDb } from "../helpers/db";
@@ -110,6 +111,18 @@ describe("summary", () => {
     const future = report(db, { month: "2027-01" });
     expect(future.range).toMatchObject({ elapsedDays: 0, isCurrent: false });
     expect(future.summary.avgPerDayCents).toBe(0);
+  });
+});
+
+describe("targets in the report", () => {
+  it("are empty without targets, present for a month, and absent for custom ranges", () => {
+    const { db, ids } = dataset();
+    expect(report(db).targets).toEqual([]);
+    createTarget(db, { kind: "category", subjectId: ids.dining, amountCents: 4_000 });
+    const month = report(db);
+    expect(month.targets).toHaveLength(1);
+    expect(month.targets[0]).toMatchObject({ name: "Dining", spentCents: 5_000, status: "over" });
+    expect(report(db, { from: "2026-10-01", to: "2026-10-31" }).targets).toEqual([]);
   });
 });
 

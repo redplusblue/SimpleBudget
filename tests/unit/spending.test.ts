@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { accounts } from "@/db/schema";
 import { getDashboard } from "@/lib/finance/dashboard";
+import { createTarget } from "@/lib/finance/targets";
 import { zonedDayStart } from "@/lib/finance/dates";
 import { getCategoryBreakdown, getMonthlySpending } from "@/lib/finance/spending";
 import { addAccount, addTxn, categoryId, freshDb } from "../helpers/db";
@@ -174,6 +175,20 @@ describe("getDashboard", () => {
     expect(d.recent[0].pending).toBe(true); // pending first
     expect(d.netWorth.totalCents).toBe(123_456);
     expect(getDashboard(db, { month: "2026-09", now: NOW, timeZone: TZ }).glance.spentCents).toBe(79_000);
+  });
+
+  it("includes target progress, and nothing at all when no targets exist", () => {
+    const db = dataset().db;
+    expect(getDashboard(db, { now: NOW, timeZone: TZ }).targets).toEqual([]);
+    createTarget(db, { kind: "category", subjectId: categoryId(db, "Groceries"), amountCents: 20_000 });
+    const d = getDashboard(db, { now: NOW, timeZone: TZ });
+    expect(d.targets).toHaveLength(1);
+    expect(d.targets[0]).toMatchObject({ name: "Groceries", spentCents: 15_000, status: "ok" });
+    // past months are measured too, without a projection
+    expect(getDashboard(db, { month: "2026-09", now: NOW, timeZone: TZ }).targets[0]).toMatchObject({
+      spentCents: 8_000,
+      projectedCents: null,
+    });
   });
 
   it("includes upcoming recurring charges and their monthly total", () => {

@@ -26,6 +26,7 @@ import type {
   TrendSeries,
   WeekdayRow,
 } from "./spending-report-types";
+import { getTargetProgress } from "./targets";
 import { getTransactionRows } from "./transactions-query";
 
 export class ReportError extends Error {}
@@ -380,8 +381,11 @@ export function getSpendingReport(db: DbLike, input: RangeInput, now: number, ti
 
   const { start: _s, end: _e, prevStart: _ps, prevEnd: _pe, ...publicRange } = range;
   void [_s, _e, _ps, _pe];
+  // Targets are monthly, so they only make sense when looking at a single calendar month.
+  const targets = range.kind === "month" ? getTargetProgress(db, range.month!, now, timeZone) : [];
   return {
     range: publicRange,
+    targets,
     summary,
     comparison,
     categories: categoryRows,

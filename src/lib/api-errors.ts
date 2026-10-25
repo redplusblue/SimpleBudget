@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { TargetError } from "@/lib/finance/targets";
 import { TaxonomyError } from "@/lib/finance/taxonomy-admin";
 import { UpdateError } from "@/lib/finance/transactions-update";
 import { RuleError } from "@/lib/rules/store";
@@ -14,7 +15,7 @@ export function errorResponse(e: unknown): NextResponse {
       { status: 400 },
     );
   }
-  if (e instanceof TaxonomyError || e instanceof RuleError || e instanceof UpdateError) {
+  if (e instanceof TaxonomyError || e instanceof TargetError || e instanceof RuleError || e instanceof UpdateError) {
     return NextResponse.json({ error: e.code, message: e.message }, { status: STATUS[e.code] });
   }
   throw e;
