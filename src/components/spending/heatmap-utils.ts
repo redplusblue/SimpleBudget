@@ -2,6 +2,19 @@ import type { DailySpend } from "@/lib/finance/spending-report-types";
 
 const LEVELS = 4;
 
+/**
+ * The spend that counts as "busiest": the 90th percentile of days with spending, so one huge day (rent) doesn't
+ * wash every other day out to the palest shade.
+ */
+export function heatScale(days: DailySpend[]): number {
+  const spent = days
+    .map((d) => d.cents)
+    .filter((c) => c > 0)
+    .sort((a, b) => a - b);
+  if (spent.length === 0) return 0;
+  return spent[Math.min(spent.length - 1, Math.floor(spent.length * 0.9))];
+}
+
 /** 0 = nothing spent, 1..4 = quartile-ish intensity relative to the busiest day. */
 export function intensity(cents: number, max: number): number {
   if (cents <= 0 || max <= 0) return 0;

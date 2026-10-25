@@ -69,17 +69,17 @@ export function MerchantsCard({ range, rows }: { range: ReportRange; rows: Merch
         <EmptyNote>No purchases in this range.</EmptyNote>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[26rem] text-sm" data-testid="merchant-table">
+          <table className="w-full text-sm" data-testid="merchant-table">
             <caption className="sr-only">Top merchants by spending</caption>
             <thead className="text-xs text-muted-foreground">
               <tr>
                 <th scope="col" className="py-1 text-left font-normal">
                   Merchant
                 </th>
-                <th scope="col" className="py-1 text-right font-normal">
+                <th scope="col" className="hidden py-1 text-right font-normal sm:table-cell">
                   Purchases
                 </th>
-                <th scope="col" className="py-1 text-right font-normal">
+                <th scope="col" className="hidden py-1 text-right font-normal sm:table-cell">
                   Average
                 </th>
                 <th scope="col" className="py-1 text-right font-normal">
@@ -100,8 +100,8 @@ export function MerchantsCard({ range, rows }: { range: ReportRange; rows: Merch
                       <span className="truncate">{m.name}</span>
                     </Link>
                   </td>
-                  <td className="py-1 text-right text-muted-foreground tabular-nums">{m.count}</td>
-                  <td className="py-1 text-right text-muted-foreground">
+                  <td className="hidden py-1 text-right text-muted-foreground tabular-nums sm:table-cell">{m.count}</td>
+                  <td className="hidden py-1 text-right text-muted-foreground sm:table-cell">
                     <Money cents={m.avgCents} />
                   </td>
                   <td className="py-1 text-right font-medium">

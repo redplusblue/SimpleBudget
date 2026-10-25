@@ -121,7 +121,7 @@ export function CategoryBreakdown({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[30rem] text-sm" data-testid="category-table">
+            <table className="w-full text-sm" data-testid="category-table">
               <caption className="sr-only">Spending by category with a six month trend</caption>
               <thead className="text-xs text-muted-foreground">
                 <tr>
@@ -134,7 +134,7 @@ export function CategoryBreakdown({
                   <th scope="col" className="py-1 text-right font-normal">
                     Spent
                   </th>
-                  <th scope="col" className="py-1 text-right font-normal">
+                  <th scope="col" className="hidden py-1 text-right font-normal sm:table-cell">
                     Purchases
                   </th>
                   <th scope="col" className="py-1 pl-4 text-right font-normal">
@@ -160,7 +160,9 @@ export function CategoryBreakdown({
                     <td className="py-1 text-right font-medium">
                       <Money cents={r.cents} />
                     </td>
-                    <td className="py-1 text-right text-muted-foreground tabular-nums">{r.count}</td>
+                    <td className="hidden py-1 text-right text-muted-foreground tabular-nums sm:table-cell">
+                      {r.count}
+                    </td>
                     <td className="py-1 pl-4">
                       <span className="flex justify-end" style={{ color: r.color }}>
                         <Sparkline
@@ -183,7 +185,8 @@ export function CategoryBreakdown({
                   <td className="py-2 text-right font-semibold">
                     <Money cents={totalCents} />
                   </td>
-                  <td colSpan={2} />
+                  <td className="hidden sm:table-cell" />
+                  <td />
                 </tr>
               </tfoot>
             </table>

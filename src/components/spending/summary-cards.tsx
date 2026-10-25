@@ -13,7 +13,7 @@ function Delta({ cents, label, goodWhenUp }: { cents: number; label: string; goo
   const good = up === goodWhenUp;
   const Icon = up ? ArrowUpRight : ArrowDownRight;
   return (
-    <p className={cn("flex items-center gap-1 text-xs", good ? "text-positive" : "text-warning")}>
+    <p className={cn("flex flex-wrap items-center gap-x-1 text-xs", good ? "text-positive" : "text-warning")}>
       <Icon className="size-3" aria-hidden />
       <Money cents={Math.abs(cents)} /> {up ? "more" : "less"} than {label}
     </p>
@@ -56,7 +56,7 @@ export function SummaryCards({ range, summary }: { range: ReportRange; summary: 
   const prevLabel = range.kind === "month" ? range.previous.label.split(" ")[0] : "the previous period";
   const { largest } = summary;
   return (
-    <section aria-label="Summary" className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+    <section aria-label="Summary" className="grid grid-cols-2 gap-3 md:grid-cols-4 2xl:grid-cols-7">
       <Tile label="Spent" href={spendingHref(span)} testId="tile-spent">
         <Money cents={summary.spentCents} className="block text-xl font-semibold tracking-tight" />
         <Delta cents={summary.spentCents - summary.previousSpentCents} label={prevLabel} goodWhenUp={false} />

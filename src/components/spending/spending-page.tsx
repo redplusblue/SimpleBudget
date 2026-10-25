@@ -2,7 +2,7 @@
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJson } from "@/lib/fetch-json";
@@ -21,7 +21,7 @@ import { WeekdayChart } from "./weekday-chart";
 function Skeletons() {
   return (
     <div className="space-y-4" aria-busy aria-label="Loading spending">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 2xl:grid-cols-7">
         {Array.from({ length: 7 }).map((_, i) => (
           <Skeleton key={i} className="h-24 rounded-2xl" />
         ))}
@@ -39,10 +39,18 @@ export function SpendingPage() {
   const pathname = usePathname();
   const params = useSearchParams();
   const fallback = useMemo(() => currentMonthLocal(), []);
-  const range = useMemo(() => parseRange(new URLSearchParams(params.toString()), fallback), [params, fallback]);
+  const fromUrl = useMemo(() => parseRange(new URLSearchParams(params.toString()), fallback), [params, fallback]);
+  // The page keeps its own copy so quick successive clicks (e.g. "next month" twice) build on each other instead of
+  // all reading the address before the previous navigation has landed; browser back/forward still wins.
+  const [range, setRangeState] = useState<RangeState>(fromUrl);
+  const fromUrlKey = rangeQuery(fromUrl);
+  useEffect(() => setRangeState(fromUrl), [fromUrlKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setRange = useCallback(
-    (next: RangeState) => router.replace(`${pathname}?${rangeQuery(next)}`, { scroll: false }),
+    (next: RangeState) => {
+      setRangeState(next);
+      router.replace(`${pathname}?${rangeQuery(next)}`, { scroll: false });
+    },
     [router, pathname],
   );
 

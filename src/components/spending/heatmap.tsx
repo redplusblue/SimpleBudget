@@ -4,7 +4,7 @@ import { formatCents } from "@/lib/finance/cents";
 import type { DailySpend } from "@/lib/finance/spending-report-types";
 import { cn } from "@/lib/utils";
 import { spendingHref } from "./links";
-import { calendarWeeks, intensity } from "./heatmap-utils";
+import { calendarWeeks, heatScale, intensity } from "./heatmap-utils";
 import { EmptyNote, Section } from "./section";
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -18,11 +18,12 @@ const SHADES = [
 
 /** Daily spending as a calendar. Each day opens that day's purchases. */
 export function Heatmap({ days }: { days: DailySpend[] }) {
-  const max = Math.max(0, ...days.map((d) => d.cents));
+  const max = heatScale(days);
+  const hasSpending = days.some((d) => d.cents > 0);
   const weeks = calendarWeeks(days);
   return (
     <Section id="heatmap" title="Daily spending" description="Darker days cost more. Tap a day to see what you bought.">
-      {max === 0 ? (
+      {!hasSpending ? (
         <EmptyNote>No spending in this range.</EmptyNote>
       ) : (
         <div className="mx-auto w-full max-w-md" data-testid="heatmap">
