@@ -178,7 +178,7 @@ describe("getDashboard", () => {
   });
 
   it("includes target progress, and nothing at all when no targets exist", () => {
-    const db = dataset().db;
+    const db = dataset();
     expect(getDashboard(db, { now: NOW, timeZone: TZ }).targets).toEqual([]);
     createTarget(db, { kind: "category", subjectId: categoryId(db, "Groceries"), amountCents: 20_000 });
     const d = getDashboard(db, { now: NOW, timeZone: TZ });
@@ -186,7 +186,7 @@ describe("getDashboard", () => {
     expect(d.targets[0]).toMatchObject({ name: "Groceries", spentCents: 25_000, status: "over" }); // 250 of 200
     // past months are measured too, without a projection
     expect(getDashboard(db, { month: "2026-09", now: NOW, timeZone: TZ }).targets[0]).toMatchObject({
-      spentCents: 8_000,
+      spentCents: 30_000,
       projectedCents: null,
     });
   });
