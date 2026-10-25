@@ -118,3 +118,15 @@
 - **Utilization:** info from 30%, warn from 50%. Credit limit and low-balance alert are optional per-account fields (migration 0003), edited in the account settings dialog.
 - **Isolation.** A generator that throws is skipped (and logged by the API) rather than failing the page.
 - **Cost.** Expense/income rows (1 year) and the recurring report are computed once per request and shared; the dashboard hands over the recurring report it already has. Dashboard compute is ~150 ms on 10k transactions over two years.
+
+## Phase 9b: optional LLM features
+
+- **New dependency:** `@anthropic-ai/sdk`, as the plan specifies. OpenAI-compatible servers use plain `fetch`.
+- **Default model:** `claude-sonnet-5-5` (the plan's default; editable in Settings -> AI). No `thinking`, `temperature` or forced `tool_choice` is sent, so any current Claude model works.
+- **What leaves the server:** only what `src/lib/llm/context.ts` assembles (category, merchant and month-over-month totals, plus an allow-list of insights). Insights are filtered by id prefix, so a new generator is excluded until someone adds it to the list. Account names/balances (and the low-balance/utilization insights) need the opt-in checkbox. The two tools return normalized payee, date, amount and category for at most 50 rows. Tests assert that neither a summary nor a tool-using question contains an account id, the access URL, a memo or a note.
+- **Key storage:** AES-256-GCM via the same secret box as the SimpleFIN access URL; write-only through the API (responses only say `hasKey`).
+- **Base URL:** any http(s) URL is accepted, because local servers (Ollama, LM Studio) are a main use case and only the signed-in owner can set it.
+- **Caching:** one saved summary per month in `insights_cache`; it counts as stale once a sync has finished after it was written, so no hook into the sync code is needed.
+- **Streaming:** the summary endpoint streams newline-delimited JSON events (text, done, error) so a failure mid-answer can still be reported; questions return one JSON answer.
+- **Failures degrade:** every provider problem becomes a short message (bad key, rate limit, declined, unreachable) next to a reminder that the insights are unaffected. Nothing in the app depends on AI being on.
+- **Dev logging:** with `NODE_ENV=development` the outgoing payload and tool results are printed; never the key.

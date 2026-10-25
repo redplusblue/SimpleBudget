@@ -12,6 +12,7 @@ const ITEMS = [
   { href: "/settings/categories", label: "Categories" },
   { href: "/settings/tags", label: "Tags" },
   { href: "/settings/sync", label: "Sync" },
+  { href: "/settings/ai", label: "AI" },
   { href: "/settings/account", label: "Account" },
 ];
 

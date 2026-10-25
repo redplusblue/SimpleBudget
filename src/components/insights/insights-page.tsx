@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Lightbulb } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
+import { AiPanel } from "@/components/ai/ai-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJson } from "@/lib/fetch-json";
@@ -23,9 +24,11 @@ export function InsightsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Insights</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Things worth a look, worked out from your own transactions. Nothing leaves this server.
+          Things worth a look, worked out from your own transactions. Insights are computed on your own server.
         </p>
       </div>
+
+      <AiPanel />
 
       {query.isPending ? (
         <div className="space-y-3" aria-busy aria-label="Loading insights">

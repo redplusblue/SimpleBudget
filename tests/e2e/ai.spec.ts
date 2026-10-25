@@ -1,0 +1,180 @@
+import { createServer, type Server } from "node:http";
+import { expect, test, type Page } from "@playwright/test";
+import { expectNoHorizontalOverflow } from "./helpers";
+
+// Uses the "targets" project's seeded server. A tiny OpenAI-compatible server stands in for the provider and records
+// exactly what the app sends it.
+const MOCK_PORT = 3198;
+test.describe.configure({ mode: "serial" });
+
+interface Recorded {
+  body: { messages: Array<{ role: string; content: string | null; tool_calls?: unknown }>; tools?: unknown[] };
+  auth: string | undefined;
+}
+
+let server: Server;
+let requests: Recorded[] = [];
+let mode: "ok" | "fail" = "ok";
+
+const sse = (events: unknown[]) => events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join("") + "data: [DONE]\n\n";
+const delta = (d: unknown, finish: string | null = null) => ({ choices: [{ delta: d, finish_reason: finish }] });
+
+test.beforeAll(async () => {
+  server = createServer((req, res) => {
+    let raw = "";
+    req.on("data", (c) => (raw += c));
+    req.on("end", () => {
+      if (mode === "fail") {
+        res.writeHead(500).end("kaboom sk-secret-should-not-appear");
+        return;
+      }
+      const body = JSON.parse(raw);
+      requests.push({ body, auth: req.headers.authorization });
+      const hasTools = Array.isArray(body.tools) && body.tools.length > 0;
+      const sawToolResult = body.messages.some((m: { role: string }) => m.role === "tool");
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      if (hasTools && !sawToolResult) {
+        res.end(
+          sse([
+            delta(
+              {
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: "call_1",
+                    function: {
+                      name: "get_category_totals",
+                      arguments: JSON.stringify({ month: new Date().toISOString().slice(0, 7) }),
+                    },
+                  },
+                ],
+              },
+              "tool_calls",
+            ),
+          ]),
+        );
+      } else if (hasTools) {
+        res.end(sse([delta({ content: "You spent the most on **Groceries**." }, "stop")]));
+      } else {
+        res.end(
+          sse([
+            delta({ content: "- Spending was steady this month.\n" }),
+            delta({ content: "- Dining was your top category.\n\n## Suggestions\n- Cook at home more." }, "stop"),
+          ]),
+        );
+      }
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(MOCK_PORT, "127.0.0.1", resolve));
+});
+test.afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
+
+async function login(page: Page) {
+  await page.goto("/login");
+  await page.getByLabel("Password").fill("password1234");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/$/);
+}
+
+test("with AI off, Insights works and only offers a way to set it up", async ({ page }) => {
+  await login(page);
+  await page.goto("/insights");
+  await expect(page.getByRole("heading", { level: 1, name: "Insights" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Set up AI" })).toBeVisible();
+  await expect(page.getByTestId("ai-summary")).toHaveCount(0);
+  expect((await page.request.post("/api/insights/ask", { data: { question: "hi" } })).status()).toBe(409);
+  expect((await page.request.post("/api/insights/summary")).status()).toBe(409);
+});
+
+test("configure a provider, then get a streamed summary and an answer that used a tool", async ({ page }) => {
+  await login(page);
+  await page.goto("/settings/ai");
+  await expect(page.getByText("Only aggregated data is sent")).toBeVisible();
+  await page.getByLabel("Turn on AI features").click();
+  await page.getByRole("combobox", { name: "Provider" }).click();
+  await page.getByRole("option", { name: /OpenAI-compatible/ }).click();
+  await page.getByLabel("Base URL").fill(`http://127.0.0.1:${MOCK_PORT}/v1`);
+  await page.getByLabel("Model").fill("mock-model");
+  await page.getByLabel(/API key/).fill("sk-test-key-123456");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("AI settings saved")).toBeVisible();
+  await expect(page.getByLabel(/API key/)).toHaveAttribute("placeholder", /Saved/);
+
+  // The key is write-only.
+  const cfg = await (await page.request.get("/api/settings/ai")).json();
+  expect(JSON.stringify(cfg)).not.toContain("sk-test-key");
+  expect(cfg.config).toMatchObject({
+    enabled: true,
+    provider: "openai-compatible",
+    hasKey: true,
+    includeBalances: false,
+  });
+
+  await page.getByRole("button", { name: "Test connection" }).click();
+  await expect(page.getByText("Connected. The provider answered.")).toBeVisible();
+
+  requests = [];
+  await page.goto("/insights");
+  await page.getByRole("button", { name: "Write summary" }).click();
+  const summary = page.getByTestId("ai-summary");
+  await expect(summary).toContainText("Dining was your top category");
+  await expect(summary.getByRole("heading", { name: "Suggestions" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Regenerate" })).toBeVisible();
+
+  // The saved summary is still there after a reload (cached until the next sync).
+  await page.reload();
+  await expect(page.getByTestId("ai-summary")).toContainText("Dining was your top category");
+
+  await page.getByLabel("Your question").fill("Where does my money go?");
+  await page.getByRole("button", { name: "Ask" }).click();
+  await expect(page.getByTestId("ai-chat")).toContainText("You spent the most on");
+  await expect(page.getByTestId("ai-chat").locator("strong")).toHaveText("Groceries");
+
+  // Acceptance: nothing identifying left the server.
+  expect(requests.length).toBeGreaterThanOrEqual(3);
+  const all = JSON.stringify(requests.map((r) => r.body));
+  for (const secret of [
+    "fake-checking",
+    "fake-credit",
+    "fake-savings",
+    "access_url",
+    "bridge.simplefin",
+    "sk-test-key",
+  ])
+    expect(all).not.toContain(secret);
+  expect(requests[0].auth).toBe("Bearer sk-test-key-123456");
+  const toolResult = requests.flatMap((r) => r.body.messages).find((m) => m.role === "tool");
+  expect(toolResult?.content).toContain("categories");
+});
+
+test("a failing provider degrades gracefully and the insights stay visible", async ({ page }) => {
+  await login(page);
+  mode = "fail";
+  try {
+    await page.goto("/insights");
+    await page.getByRole("button", { name: /Regenerate|Write summary/ }).click();
+    const alert = page.getByRole("alert").filter({ hasText: "Your insights below are unaffected" });
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText("The AI provider returned an error (500)");
+    await expect(alert).not.toContainText("sk-secret");
+    await expect(page.getByTestId("insights-list").or(page.getByText("Nothing notable right now"))).toBeVisible();
+  } finally {
+    mode = "ok";
+  }
+});
+
+test("the AI settings and panel fit a phone, and AI can be turned off again", async ({ page }) => {
+  await login(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/insights");
+  await expect(page.getByTestId("ai-summary")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.goto("/settings/ai");
+  await expect(page.getByLabel("Base URL")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.getByLabel("Turn on AI features").click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("AI settings saved")).toBeVisible();
+  await page.goto("/insights");
+  await expect(page.getByRole("link", { name: "Set up AI" })).toBeVisible();
+});

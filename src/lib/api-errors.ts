@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { AiConfigError } from "@/lib/llm/config";
+import { LlmError } from "@/lib/llm/types";
 import { TargetError } from "@/lib/finance/targets";
 import { TaxonomyError } from "@/lib/finance/taxonomy-admin";
 import { UpdateError } from "@/lib/finance/transactions-update";
@@ -15,7 +17,17 @@ export function errorResponse(e: unknown): NextResponse {
       { status: 400 },
     );
   }
-  if (e instanceof TaxonomyError || e instanceof TargetError || e instanceof RuleError || e instanceof UpdateError) {
+  if (e instanceof LlmError) {
+    // The message is written to be shown to the user; the insights themselves keep working without AI.
+    return NextResponse.json({ error: "ai_unavailable", kind: e.kind, message: e.message }, { status: 502 });
+  }
+  if (
+    e instanceof AiConfigError ||
+    e instanceof TaxonomyError ||
+    e instanceof TargetError ||
+    e instanceof RuleError ||
+    e instanceof UpdateError
+  ) {
     return NextResponse.json({ error: e.code, message: e.message }, { status: STATUS[e.code] });
   }
   throw e;
