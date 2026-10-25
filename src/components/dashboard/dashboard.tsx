@@ -12,10 +12,11 @@ import type { DashboardPayload } from "@/lib/finance/dashboard-types";
 import { AccountBalancesCard } from "./account-balances-card";
 import { MonthGlanceCard } from "./month-glance-card";
 import { NetWorthCard } from "./net-worth-card";
-import { InsightsTeaser, UpcomingCard } from "./placeholder-cards";
+import { InsightsTeaser } from "./placeholder-cards";
 import { RecentTransactionsCard } from "./recent-transactions-card";
 import { SpendingPaceChart } from "./spending-pace-chart";
 import { TopCategoriesCard } from "./top-categories-card";
+import { UpcomingCard } from "./upcoming-card";
 
 export const DASHBOARD_KEY = ["dashboard"] as const;
 
@@ -85,7 +86,7 @@ export function Dashboard() {
       </div>
       <div className="min-w-0 space-y-4 lg:col-span-4">
         <AccountBalancesCard groups={data.accounts} />
-        <UpcomingCard />
+        <UpcomingCard upcoming={data.upcoming} />
         <InsightsTeaser />
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { CalendarClock, Lightbulb } from "lucide-react";
+import { Lightbulb } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 function Placeholder({
@@ -28,13 +28,6 @@ function Placeholder({
     </Card>
   );
 }
-
-/** Filled in once recurring charges are detected (Phase 7). */
-export const UpcomingCard = () => (
-  <Placeholder id="upcoming-title" title="Upcoming" icon={CalendarClock}>
-    Recurring bills and subscriptions will appear here once they&apos;re detected.
-  </Placeholder>
-);
 
 /** Filled in once insights exist (Phase 9). */
 export const InsightsTeaser = () => (
