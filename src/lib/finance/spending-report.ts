@@ -394,7 +394,7 @@ export function getSpendingReport(db: DbLike, input: RangeInput, now: number, ti
 }
 
 /** A readable name for a merchant key: the cleaned-up name on its most recent transaction. */
-function merchantName(db: DbLike, key: string): string {
+export function merchantName(db: DbLike, key: string): string {
   const row = db
     .select({
       payeeOverride: transactions.payeeOverride,
