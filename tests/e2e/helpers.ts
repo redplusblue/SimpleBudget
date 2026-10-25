@@ -95,3 +95,23 @@ export async function revealLazy(page: Page) {
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(100);
 }
+
+/** Adds a hand-kept account in another currency straight into a test database (there's no UI for currencies yet). */
+export function insertForeignAccount(
+  dbPath: string,
+  a: { id: string; name: string; currency: string; balanceCents: number },
+) {
+  const db = new Database(dbPath);
+  try {
+    db.pragma("busy_timeout = 5000");
+    db.prepare(
+      "insert into accounts (id, org_name, name, currency, balance_cents, balance_date, type, is_manual) values (?, 'Manual', ?, ?, ?, unixepoch(), 'checking', 1)",
+    ).run(a.id, a.name, a.currency, a.balanceCents);
+    db.prepare("insert into balance_snapshots (account_id, date, balance_cents) values (?, date('now'), ?)").run(
+      a.id,
+      a.balanceCents,
+    );
+  } finally {
+    db.close();
+  }
+}

@@ -163,3 +163,12 @@
   - a system font stack instead of a 49 KB web font, and an SVG favicon.
   Transactions is the lowest: its first rows are drawn client-side by the virtualized list, so the first paint waits for JavaScript. Server-rendering rows would need time-zone-safe day headers; left for later.
 - **Accessibility fixes found by Lighthouse:** a separate `--link` color for accent-colored text (the brand indigo is 4.1:1 on the dark background), and a lighter red in dark mode for negative amounts.
+
+## Phase 12: extras
+
+- **Holdings** come from SimpleFIN's optional `holdings` list. They are replaced only when a response actually includes the field, so a balances-only response never wipes them. Gain/loss uses the institution's cost basis and leaves out positions without one.
+- **Goals** track an account balance. "Already there" is money in the account that isn't part of the goal, so a shared account works. The pace is the account's growth over the last 90 days (needs a week of history); a goal with a deadline is "on track" when that pace reaches it in time.
+- **Forecast** starts from checking, savings and cash accounts and uses only what repeats (recurring bills and regular deposits found with the same detector as the Spending page). A second line subtracts typical everyday spending (last 90 days minus the recurring bills). Credit-card charges are counted on the expected day, as if paid immediately. It does not guess at irregular income.
+- **Year in review** is built on the spending report for a custom range, so its numbers match the Spending page; the "vs the year before" comparison uses the preceding period of equal length.
+- **Multi-currency is display-level.** Everything is shown in US dollars; you set what one unit of each other currency is worth, and net worth (total, chart and assets/liabilities) and account-group totals convert at that rate. Rates never update themselves; without one a currency counts 1 to 1 and the dashboard says so. Spending analytics (categories, merchants, targets) still add up raw amounts, so they assume your accounts share a currency. Making those convert too would mean changing every aggregate query; left out on purpose.
+- **Alerts** are off by default and generic by default (the message says an amount, not who it was with) because a public ntfy topic is readable by anyone who knows its name. Only rows inserted by that sync can trigger one, at most five per sync, and a failure is announced at most every six hours. The destination and token are stored encrypted and never returned by the API.

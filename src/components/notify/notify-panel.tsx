@@ -47,7 +47,7 @@ export function NotifyPanel() {
   }, [cfg]);
 
   const save = useMutation({
-    mutationFn: async (extra: { url?: string | null; token?: string | null } = {}) => {
+    mutationFn: async (extra: { url?: string | null; token?: string | null; enabled?: boolean } = {}) => {
       let largeCents: number;
       try {
         largeCents = Math.abs(parseCents(large.trim().replace(/^\$/, "")));
@@ -159,9 +159,9 @@ export function NotifyPanel() {
                 size="sm"
                 className="-ml-2"
                 disabled={save.isPending}
-                onClick={() => save.mutate({ url: null, token: null })}
+                onClick={() => save.mutate({ url: null, token: null, enabled: false })}
               >
-                Remove the saved address
+                Remove the saved address (turns alerts off)
               </Button>
             )}
           </div>
