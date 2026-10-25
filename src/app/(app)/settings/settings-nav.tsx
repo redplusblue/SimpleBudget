@@ -13,6 +13,7 @@ const ITEMS = [
   { href: "/settings/tags", label: "Tags" },
   { href: "/settings/sync", label: "Sync" },
   { href: "/settings/currency", label: "Currency" },
+  { href: "/settings/notifications", label: "Alerts" },
   { href: "/settings/ai", label: "AI" },
   { href: "/settings/import", label: "Import" },
   { href: "/settings/data", label: "Export" },

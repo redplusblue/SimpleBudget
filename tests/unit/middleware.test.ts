@@ -62,6 +62,8 @@ describe("middleware", () => {
     "/api/forecast",
     "/api/year",
     "/api/settings/currency",
+    "/api/settings/notifications",
+    "/api/settings/notifications/test",
     "/api/targets",
     "/api/targets/1",
     "/api/recurring",

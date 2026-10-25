@@ -20,6 +20,7 @@ import {
   setSyncProgress,
   type Window,
 } from "./limits";
+import { notifyAfterSync } from "@/lib/notify/events";
 import { parseAccount, type ParsedAccount, type ParsedHolding } from "./parse";
 import { applyRulesToNew } from "@/lib/rules/store";
 import { reconcilePending } from "./pending";
@@ -252,6 +253,9 @@ async function execute(db: Db, p: Plan, opts: SyncOptions): Promise<SyncResult> 
     })
     .where(eq(syncRuns.id, run.id))
     .run();
+
+  // Optional: tell the owner about a failed sync or large new transactions (does nothing unless switched on).
+  await notifyAfterSync(db, { status, errors, newIds: stats.newIds }, now, tz);
 
   return {
     ok: true,
