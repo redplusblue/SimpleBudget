@@ -78,18 +78,22 @@ export function updateCategory(db: DbLike, id: number, patch: CategoryPatch): vo
   db.update(categories).set(v).where(eq(categories.id, id)).run();
 }
 
-/** Sets the display order; every category must be listed exactly once. */
+/**
+ * Sets the display order from `ids`. The list may be slightly stale (another tab added or removed a category):
+ * unknown ids are ignored and categories that aren't listed keep their relative order after the listed ones.
+ */
 export function reorderCategories(db: DbLike, ids: number[]): void {
-  const all = db
+  if (new Set(ids).size !== ids.length) throw new TaxonomyError("invalid", "Each category can only be listed once");
+  const existing = db
     .select({ id: categories.id })
     .from(categories)
+    .orderBy(categories.sortOrder, categories.id)
     .all()
     .map((c) => c.id);
-  if (ids.length !== all.length || new Set(ids).size !== ids.length || !ids.every((id) => all.includes(id))) {
-    throw new TaxonomyError("invalid", "Provide every category exactly once");
-  }
+  const known = new Set(existing);
+  const order = [...ids.filter((id) => known.has(id)), ...existing.filter((id) => !ids.includes(id))];
   db.transaction((tx) =>
-    ids.forEach((id, i) => tx.update(categories).set({ sortOrder: i }).where(eq(categories.id, id)).run()),
+    order.forEach((id, i) => tx.update(categories).set({ sortOrder: i }).where(eq(categories.id, id)).run()),
   );
 }
 

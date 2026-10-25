@@ -323,5 +323,5 @@ describe("performance", () => {
     expect(next.rows).toHaveLength(100);
     expect(searched.rows.length).toBeGreaterThan(0);
     expect(elapsed).toBeLessThan(1500);
-  });
+  }, 30_000);
 });

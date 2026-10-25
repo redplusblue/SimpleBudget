@@ -125,18 +125,22 @@ export function deleteRule(db: DbLike, id: number): boolean {
   return db.delete(rulesTable).where(eq(rulesTable.id, id)).returning({ id: rulesTable.id }).all().length > 0;
 }
 
-/** Sets priorities from the given order; every existing rule must be listed exactly once. */
+/**
+ * Sets priorities from `ids` (first runs first). A slightly stale list is fine: unknown ids are ignored and rules
+ * that aren't listed keep their relative order after the listed ones.
+ */
 export function reorderRules(db: DbLike, ids: number[]): void {
-  const all = db
+  if (new Set(ids).size !== ids.length) throw new RuleError("invalid", "Each rule can only be listed once");
+  const existing = db
     .select({ id: rulesTable.id })
     .from(rulesTable)
+    .orderBy(rulesTable.priority, rulesTable.id)
     .all()
     .map((r) => r.id);
-  if (ids.length !== all.length || new Set(ids).size !== ids.length || !ids.every((id) => all.includes(id))) {
-    throw new RuleError("invalid", "Provide every rule exactly once");
-  }
+  const known = new Set(existing);
+  const order = [...ids.filter((id) => known.has(id)), ...existing.filter((id) => !ids.includes(id))];
   db.transaction((tx) =>
-    ids.forEach((id, i) => tx.update(rulesTable).set({ priority: i }).where(eq(rulesTable.id, id)).run()),
+    order.forEach((id, i) => tx.update(rulesTable).set({ priority: i }).where(eq(rulesTable.id, id)).run()),
   );
 }
 

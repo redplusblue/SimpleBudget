@@ -174,7 +174,7 @@ export function CategoriesPanel() {
                       </Badge>
                     )}
                   </p>
-                  <p className="truncate text-xs text-muted-foreground">
+                  <p className="text-xs break-words text-muted-foreground">
                     {r.groupName ? `${r.groupName} · ` : ""}
                     {plural(r.txnCount, "transaction")}
                   </p>
@@ -219,7 +219,7 @@ export function CategoriesPanel() {
         open={dialog?.kind === "create" || dialog?.kind === "edit"}
         onOpenChange={(o) => !o && close()}
         title={dialog?.kind === "edit" ? "Edit category" : "New category"}
-        className="max-w-xl"
+        className="sm:max-w-xl"
       >
         {(dialog?.kind === "create" || dialog?.kind === "edit") && (
           <CategoryForm

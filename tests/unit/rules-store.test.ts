@@ -99,14 +99,15 @@ describe("rule CRUD", () => {
     expect(listRules(db)).toEqual([]);
   });
 
-  it("reorders, requiring every rule exactly once", () => {
+  it("reorders; a stale list is tolerated", () => {
     const { db, groceries } = setup();
     const [a, b, c] = [1, 2, 3].map((n) => createRule(db, { ...traderRule(groceries), name: `r${n}` }));
     reorderRules(db, [c.id, a.id, b.id]);
     expect(listRules(db).map((r) => r.name)).toEqual(["r3", "r1", "r2"]);
-    expect(() => reorderRules(db, [a.id, b.id])).toThrow(RuleError);
-    expect(() => reorderRules(db, [a.id, a.id, b.id])).toThrow(RuleError);
-    expect(() => reorderRules(db, [a.id, b.id, 999])).toThrow(RuleError);
+    // unlisted rules go after the listed ones, in their existing order; unknown ids are ignored
+    reorderRules(db, [b.id, 999]);
+    expect(listRules(db).map((r) => r.name)).toEqual(["r2", "r3", "r1"]);
+    expect(() => reorderRules(db, [a.id, a.id])).toThrow(RuleError);
   });
 
   it("skips rows that no longer validate instead of breaking everything", () => {
@@ -300,16 +301,21 @@ describe("performance", () => {
         conditions: [{ field: "payee", op: "contains", value: `merchant ${i * 7}` }],
         actions: { categoryId: cat },
       });
-    const t0 = performance.now();
-    const res = previewRule(db, {
-      conditions: [{ field: "description", op: "regex", value: "MERCHANT 1\\d\\d " }],
-      actions: { categoryId: cat },
-    });
-    const all = applyRules(db, { dryRun: true });
-    const ms = performance.now() - t0;
-    expect(res.matched).toBeGreaterThan(0);
-    expect(all.matched).toBeGreaterThan(0);
-    // ~0.5 s on an idle machine (two full passes); the generous bound keeps this stable on a loaded CI box.
-    expect(ms).toBeLessThan(4000);
-  });
+    // Best of three: a shared machine can stall any single run, but not all of them.
+    let best = Infinity;
+    let matched = 0;
+    for (let i = 0; i < 3; i++) {
+      const t0 = performance.now();
+      const res = previewRule(db, {
+        conditions: [{ field: "description", op: "regex", value: "MERCHANT 1\\d\\d " }],
+        actions: { categoryId: cat },
+      });
+      const all = applyRules(db, { dryRun: true });
+      best = Math.min(best, performance.now() - t0);
+      matched = Math.min(res.matched, all.matched);
+    }
+    expect(matched).toBeGreaterThan(0);
+    // ~0.5 s for the two full passes on an idle machine.
+    expect(best).toBeLessThan(3000);
+  }, 30_000);
 });

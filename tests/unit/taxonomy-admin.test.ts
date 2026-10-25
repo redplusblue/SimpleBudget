@@ -71,13 +71,17 @@ describe("categories", () => {
     expect(listCategories(db).find((c) => c.id === g)!.isArchived).toBe(false);
   });
 
-  it("reorders, requiring the full set", () => {
+  it("reorders; a stale list is tolerated", () => {
     const db = freshDb();
     const ids = listCategoriesAdmin(db).map((c) => c.id);
     reorderCategories(db, [...ids].reverse());
     expect(listCategoriesAdmin(db).map((c) => c.id)).toEqual([...ids].reverse());
-    expect(() => reorderCategories(db, ids.slice(1))).toThrow(TaxonomyError);
-    expect(() => reorderCategories(db, [...ids.slice(1), ids[1]])).toThrow(TaxonomyError);
+    // missing ids keep their relative order after the listed ones; unknown ids are ignored
+    reorderCategories(db, [ids[3], 9999, ids[1]]);
+    const after = listCategoriesAdmin(db).map((c) => c.id);
+    expect(after.slice(0, 2)).toEqual([ids[3], ids[1]]);
+    expect(after).toHaveLength(ids.length);
+    expect(() => reorderCategories(db, [ids[0], ids[0]])).toThrow(TaxonomyError);
   });
 });
 

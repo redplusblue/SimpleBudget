@@ -195,5 +195,5 @@ describe("getDashboard", () => {
     const ms = performance.now() - t0;
     expect(d.categories.totalCents).toBeGreaterThan(0);
     expect(ms).toBeLessThan(300);
-  });
+  }, 30_000);
 });

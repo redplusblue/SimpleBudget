@@ -34,7 +34,7 @@ export function RuleBuilder({ target, onClose }: { target: BuilderTarget | null;
       onOpenChange={(o) => !o && onClose()}
       title={target?.id ? "Edit rule" : "New rule"}
       description="Rules run on new transactions as they're imported, in the order shown on the Rules page."
-      className="max-w-2xl"
+      className="sm:max-w-2xl"
     >
       {target && <BuilderForm key={target.id ?? "new"} target={target} onClose={onClose} />}
     </ResponsiveDialog>
