@@ -3,6 +3,7 @@ import { count, eq } from "drizzle-orm";
 import type { Db } from "@/db/open";
 import { accounts, connections } from "@/db/schema";
 import { decrypt, encrypt } from "./crypto";
+import { removeRulesForAccounts } from "./rules/store";
 import { deleteSetting, getSetting, setSetting, SETTING_KEYS } from "./settings";
 
 export interface ConnectionSummary {
@@ -56,6 +57,14 @@ export function removeConnection(db: Db, id: number, opts: { deleteData: boolean
   return db.transaction((tx) => {
     if (!tx.select({ id: connections.id }).from(connections).where(eq(connections.id, id)).get()) return false;
     if (opts.deleteData) {
+      // Rules that compare against one of these accounts can never match again.
+      const gone = tx
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(eq(accounts.connectionId, id))
+        .all()
+        .map((a) => a.id);
+      removeRulesForAccounts(tx, gone);
       tx.delete(accounts).where(eq(accounts.connectionId, id)).run();
     } else {
       tx.update(accounts).set({ connectionId: null }).where(eq(accounts.connectionId, id)).run();

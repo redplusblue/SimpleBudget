@@ -2,7 +2,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { runMigrations } from "@/db/migrate";
 import { createDb, openSqlite } from "@/db/open";
-import { accounts, settings, transactions } from "@/db/schema";
+import { accounts, categories, settings, transactions } from "@/db/schema";
+import { createRule, listRules } from "@/lib/rules/store";
 import { addConnection, getAccessUrl, listConnections, removeConnection } from "@/lib/connections";
 
 const ACCESS = "https://user:topsecret@bridge.simplefin.org/simplefin";
@@ -64,6 +65,39 @@ describe("connections", () => {
     expect(acc[0].connectionId).toBeNull();
     expect(db.select().from(transactions).all()).toHaveLength(1);
     expect(getAccessUrl(db, id)).toBeUndefined();
+  });
+
+  it("removing with deleteData also removes rules that point at the deleted accounts", () => {
+    const db = freshDb();
+    const id = addConnection(db, ACCESS);
+    seedAccount(db, id, "acc1");
+    const cat = db.select().from(categories).all()[0].id;
+    createRule(db, {
+      name: "gone",
+      conditions: [{ field: "account", op: "equals", value: "acc1" }],
+      actions: { categoryId: cat },
+    });
+    const keep = createRule(db, {
+      name: "keep",
+      conditions: [{ field: "payee", op: "contains", value: "x" }],
+      actions: { categoryId: cat },
+    });
+    removeConnection(db, id, { deleteData: true });
+    expect(listRules(db).map((r) => r.id)).toEqual([keep.id]);
+  });
+
+  it("keeping the data keeps the rules", () => {
+    const db = freshDb();
+    const id = addConnection(db, ACCESS);
+    seedAccount(db, id, "acc1");
+    const cat = db.select().from(categories).all()[0].id;
+    createRule(db, {
+      name: "stays",
+      conditions: [{ field: "account", op: "equals", value: "acc1" }],
+      actions: { categoryId: cat },
+    });
+    removeConnection(db, id, { deleteData: false });
+    expect(listRules(db)).toHaveLength(1);
   });
 
   it("returns false for unknown connections", () => {
