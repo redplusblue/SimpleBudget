@@ -107,3 +107,14 @@
 - **Optional by design.** No targets means no card and no nav tab. The Targets settings tab appears once one exists; the first is added from a category's or tag's "Set monthly target..." menu item.
 - **Category merge.** The destination keeps its own target on a scope clash; the merged category's duplicate is dropped (reported as `targetsDropped`).
 - **e2e.** The targets spec has its own 10k-transaction server (port 3103) because it adds transactions and targets; it inserts expenses straight into that test database, registering `payee_key()` on the connection.
+
+## Phase 9a: deterministic insights
+
+- **Always on, local only.** `src/lib/insights/` computes everything from the database; nothing is sent anywhere. `/api/insights` and the dashboard teaser work with AI absent.
+- **Order.** Warnings, then good news, then notes; generator order within a level. The dashboard shows the top 3.
+- **Partial months.** Category changes compare month-to-date with the 3-month average scaled to the same day, and stay silent for the first 7 days. Pace needs 5 days and some history.
+- **New merchants** need 45 days of history, otherwise everything would look new.
+- **Large transactions** use a baseline that excludes the last 14 days (so the outlier doesn't inflate its own sigma), require 10 samples in the category, and also 1.5x the mean and $50, to avoid noise on near-constant categories such as rent.
+- **Utilization:** info from 30%, warn from 50%. Credit limit and low-balance alert are optional per-account fields (migration 0003), edited in the account settings dialog.
+- **Isolation.** A generator that throws is skipped (and logged by the API) rather than failing the page.
+- **Cost.** Expense/income rows (1 year) and the recurring report are computed once per request and shared; the dashboard hands over the recurring report it already has. Dashboard compute is ~150 ms on 10k transactions over two years.

@@ -48,6 +48,8 @@ function useAccountPatch(id: string) {
       qc.invalidateQueries({ queryKey: accountKey(id) });
       qc.invalidateQueries({ queryKey: ACCOUNTS_OVERVIEW_KEY });
       qc.invalidateQueries({ queryKey: ["transactions"] }); // account names appear in rows
+      qc.invalidateQueries({ queryKey: ["insights"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: () => toast.error("Couldn't save that change"),
   });

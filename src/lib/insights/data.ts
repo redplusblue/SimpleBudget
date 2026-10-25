@@ -2,6 +2,8 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
 import { transactions } from "@/db/schema";
 import { localDateString } from "@/lib/finance/dates";
+import { detectRecurring } from "@/lib/finance/recurring";
+import type { RecurringReport } from "@/lib/finance/recurring-types";
 import { effectiveDateSql, expenseCondition, incomeCondition } from "@/lib/finance/sql";
 
 /** How far back the generators look for a baseline. */
@@ -31,6 +33,8 @@ export interface InsightContext {
   /** Expense and income rows of the last year, loaded once and shared between generators. */
   expenses: () => TxnRow[];
   income: () => TxnRow[];
+  /** Detected subscriptions and bills, computed once (the dashboard hands over the report it already has). */
+  recurring: () => RecurringReport;
 }
 
 function load(db: DbLike, now: number, timeZone: string, kind: "expense" | "income"): TxnRow[] {
@@ -65,7 +69,13 @@ function load(db: DbLike, now: number, timeZone: string, kind: "expense" | "inco
   }));
 }
 
-export function createContext(db: DbLike, now: number, timeZone: string, month: string): InsightContext {
+export function createContext(
+  db: DbLike,
+  now: number,
+  timeZone: string,
+  month: string,
+  recurring?: RecurringReport,
+): InsightContext {
   let expenses: TxnRow[] | undefined;
   let income: TxnRow[] | undefined;
   return {
@@ -76,6 +86,7 @@ export function createContext(db: DbLike, now: number, timeZone: string, month: 
     month,
     expenses: () => (expenses ??= load(db, now, timeZone, "expense")),
     income: () => (income ??= load(db, now, timeZone, "income")),
+    recurring: () => (recurring ??= detectRecurring(db, now, timeZone)),
   };
 }
 

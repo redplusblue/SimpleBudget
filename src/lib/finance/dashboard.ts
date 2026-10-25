@@ -6,6 +6,7 @@ import type { DashboardPayload } from "./dashboard-types";
 import { currentMonth, localDateString } from "./dates";
 import { detectRecurring, upcomingCharges } from "./recurring";
 import { DEFAULT_NET_WORTH_RANGE, getNetWorthSummary } from "./networth";
+import { getInsights } from "@/lib/insights";
 import { getTargetProgress } from "./targets";
 import { getCategoryBreakdown, getMonthlySpending } from "./spending";
 import { queryTransactions } from "./transactions-query";
@@ -13,6 +14,7 @@ import { queryTransactions } from "./transactions-query";
 export const RECENT_COUNT = 8;
 export const UPCOMING_DAYS = 30;
 export const UPCOMING_LIMIT = 5;
+export const INSIGHTS_TEASER = 3;
 
 /** Everything the home page needs in one payload, computed with SQL aggregates. */
 export function getDashboard(db: DbLike, opts: { month?: string; now: number; timeZone: string }): DashboardPayload {
@@ -20,6 +22,7 @@ export function getDashboard(db: DbLike, opts: { month?: string; now: number; ti
   const month = opts.month ?? currentMonth(now, timeZone);
   const { glance, chart } = getMonthlySpending(db, month, now, timeZone);
   const recurring = detectRecurring(db, now, timeZone);
+  const insights = getInsights(db, { now, timeZone, recurring });
   return {
     month,
     generatedAt: now,
@@ -35,6 +38,7 @@ export function getDashboard(db: DbLike, opts: { month?: string; now: number; ti
       monthlyTotalCents: recurring.monthlyTotalCents,
       activeCount: recurring.items.length,
     },
+    insights: { top: insights.insights.slice(0, INSIGHTS_TEASER), total: insights.insights.length },
     targets: getTargetProgress(db, month, now, timeZone),
     accounts: getAccountsOverview(db, now, timeZone),
   };

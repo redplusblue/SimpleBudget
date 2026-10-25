@@ -11,9 +11,9 @@ import { fetchJson } from "@/lib/fetch-json";
 import type { DashboardPayload } from "@/lib/finance/dashboard-types";
 import { TargetsCard } from "@/components/targets/targets-card";
 import { AccountBalancesCard } from "./account-balances-card";
+import { InsightsTeaser } from "@/components/insights/insights-teaser";
 import { MonthGlanceCard } from "./month-glance-card";
 import { NetWorthCard } from "./net-worth-card";
-import { InsightsTeaser } from "./placeholder-cards";
 import { RecentTransactionsCard } from "./recent-transactions-card";
 import { SpendingPaceChart } from "./spending-pace-chart";
 import { TopCategoriesCard } from "./top-categories-card";
@@ -89,7 +89,7 @@ export function Dashboard() {
         <TargetsCard targets={data.targets} month={data.month} />
         <AccountBalancesCard groups={data.accounts} />
         <UpcomingCard upcoming={data.upcoming} />
-        <InsightsTeaser />
+        <InsightsTeaser top={data.insights.top} total={data.insights.total} />
       </div>
     </div>
   );

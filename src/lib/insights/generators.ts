@@ -3,7 +3,7 @@ import { accounts, categories, transactions } from "@/db/schema";
 import { monthSpan, spendingHref, transactionsHref } from "@/components/spending/links";
 import { formatCents } from "@/lib/finance/cents";
 import { addDaysToDate, daysInMonth, monthRange, shiftMonth } from "@/lib/finance/dates";
-import { detectRecurring, MIN_OCCURRENCES } from "@/lib/finance/recurring";
+import { MIN_OCCURRENCES } from "@/lib/finance/recurring";
 import { getSpendingReport, merchantName } from "@/lib/finance/spending-report";
 import { dailySpending } from "@/lib/finance/spending";
 import { median, meanAndStdDev, type InsightContext, type TxnRow } from "./data";
@@ -40,6 +40,12 @@ const CADENCE_PHRASE = {
   monthly: "per month",
   yearly: "per year",
 } as const;
+
+function pushTo<K, V>(map: Map<K, V[]>, key: K, value: V) {
+  const list = map.get(key);
+  if (list) list.push(value);
+  else map.set(key, [value]);
+}
 
 export type Generator = (ctx: InsightContext) => Insight[];
 
@@ -88,29 +94,37 @@ export const newMerchants: Generator = (ctx) => {
   const first = new Map<string, TxnRow[]>();
   for (const r of rows) {
     if (!r.merchantKey || r.merchantKey === "unknown") continue;
-    first.set(r.merchantKey, [...(first.get(r.merchantKey) ?? []), r]);
+    const list = first.get(r.merchantKey);
+    if (list) list.push(r);
+    else first.set(r.merchantKey, [r]);
   }
-  const out: Insight[] = [];
+  const candidates: Array<{ key: string; firstDate: string; cents: number }> = [];
   for (const [key, list] of first) {
     if (list[0].date < cutoff) continue; // seen before the window
     const biggest = list.reduce((a, b) => (b.cents > a.cents ? b : a));
-    if (biggest.cents <= NEW_MERCHANT_MEDIAN_MULTIPLE * typical) continue;
-    const name = merchantName(ctx.db, key);
-    out.push({
-      id: `new-merchant:${key}`,
-      severity: "info",
-      title: `New merchant: ${name}`,
-      body: `First seen ${list[0].date}; ${$(biggest.cents)} is more than ${NEW_MERCHANT_MEDIAN_MULTIPLE}× your typical purchase of ${$(typical)}.`,
-      valueCents: biggest.cents,
-      link: merchantLink(key, name),
-    });
+    if (biggest.cents > NEW_MERCHANT_MEDIAN_MULTIPLE * typical)
+      candidates.push({ key, firstDate: list[0].date, cents: biggest.cents });
   }
-  return out.sort((a, b) => (b.valueCents ?? 0) - (a.valueCents ?? 0)).slice(0, 3);
+  // Only the few that will be shown need their names looked up.
+  return candidates
+    .sort((a, b) => b.cents - a.cents)
+    .slice(0, 3)
+    .map(({ key, firstDate, cents }): Insight => {
+      const name = merchantName(ctx.db, key);
+      return {
+        id: `new-merchant:${key}`,
+        severity: "info",
+        title: `New merchant: ${name}`,
+        body: `First seen ${firstDate}; ${$(cents)} is more than ${NEW_MERCHANT_MEDIAN_MULTIPLE}× your typical purchase of ${$(typical)}.`,
+        valueCents: cents,
+        link: merchantLink(key, name),
+      };
+    });
 };
 
 /** Price increases on subscriptions, and recurring charges that were only just detected. */
 export const subscriptions: Generator = (ctx) => {
-  const report = detectRecurring(ctx.db, ctx.now, ctx.timeZone);
+  const report = ctx.recurring();
   const out: Insight[] = [];
   for (const item of report.items) {
     const link = merchantLink(item.key, item.name);
@@ -142,7 +156,7 @@ export const largeTransactions: Generator = (ctx) => {
   const cutoff = addDaysToDate(ctx.today, -OUTLIER_WINDOW_DAYS);
   const rows = ctx.expenses();
   const history = new Map<number | null, number[]>();
-  for (const r of rows) if (r.date < cutoff) history.set(r.categoryId, [...(history.get(r.categoryId) ?? []), r.cents]);
+  for (const r of rows) if (r.date < cutoff) pushTo(history, r.categoryId, r.cents);
   const out: Array<{ insight: Insight; cents: number }> = [];
   for (const r of rows) {
     if (r.date < cutoff || r.categoryId === null) continue; // uncategorized spending has no meaningful baseline
@@ -215,7 +229,7 @@ export const spendingPace: Generator = (ctx) => {
 export const incomeEvents: Generator = (ctx) => {
   const rows = ctx.income().filter((r) => r.cents >= INCOME_MIN_CENTS && r.merchantKey && r.merchantKey !== "unknown");
   const byKey = new Map<string, TxnRow[]>();
-  for (const r of rows) byKey.set(r.merchantKey!, [...(byKey.get(r.merchantKey!) ?? []), r]);
+  for (const r of rows) pushTo(byKey, r.merchantKey!, r);
   const recentCutoff = addDaysToDate(ctx.today, -INCOME_RECENT_DAYS);
   const out: Insight[] = [];
   for (const [key, list] of byKey) {

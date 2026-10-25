@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { accounts } from "@/db/schema";
 import { getDashboard } from "@/lib/finance/dashboard";
+import { getInsights } from "@/lib/insights";
 import { createTarget } from "@/lib/finance/targets";
 import { zonedDayStart } from "@/lib/finance/dates";
 import { getCategoryBreakdown, getMonthlySpending } from "@/lib/finance/spending";
@@ -175,6 +176,18 @@ describe("getDashboard", () => {
     expect(d.recent[0].pending).toBe(true); // pending first
     expect(d.netWorth.totalCents).toBe(123_456);
     expect(getDashboard(db, { month: "2026-09", now: NOW, timeZone: TZ }).glance.spentCents).toBe(79_000);
+  });
+
+  it("includes the top three insights and the total count", () => {
+    const db = dataset();
+    const d = getDashboard(db, { now: NOW, timeZone: TZ });
+    expect(d.insights.top.length).toBeLessThanOrEqual(3);
+    expect(d.insights.total).toBeGreaterThanOrEqual(d.insights.top.length);
+    expect(d.insights.top.map((i) => i.id)).toEqual(
+      getInsights(db, { now: NOW, timeZone: TZ })
+        .insights.slice(0, 3)
+        .map((i) => i.id),
+    );
   });
 
   it("includes target progress, and nothing at all when no targets exist", () => {
