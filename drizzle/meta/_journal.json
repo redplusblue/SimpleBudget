@@ -8,6 +8,13 @@
       "when": 1792814843163,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1792888749674,
+      "tag": "0001_merchant_key",
+      "breakpoints": true
     }
   ]
 }

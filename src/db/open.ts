@@ -3,6 +3,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
+import { merchantKey } from "../lib/finance/payee";
 import * as schema from "./schema";
 
 export type Db = ReturnType<typeof createDb>;
@@ -17,6 +18,8 @@ export function openSqlite(file: string): Database.Database {
   sqlite.pragma("foreign_keys = ON");
   sqlite.pragma("busy_timeout = 5000");
   sqlite.pragma("synchronous = NORMAL");
+  // Used by the triggers that maintain transactions.merchant_key; must exist on every connection that writes.
+  sqlite.function("payee_key", { deterministic: true }, (raw) => merchantKey(typeof raw === "string" ? raw : ""));
   return sqlite;
 }
 

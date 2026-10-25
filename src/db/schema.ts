@@ -96,6 +96,11 @@ export const transactions = sqliteTable(
     categoryId: integer("category_id").references(() => categories.id, { onDelete: "set null" }),
     notes: text("notes"),
     payeeOverride: text("payee_override"),
+    /**
+     * Normalized merchant ("traderjoes") derived from payee override / payee / description by SQLite triggers
+     * (see the merchant_key migration), so merchants can be grouped and filtered in SQL. Never written directly.
+     */
+    merchantKey: text("merchant_key"),
     isTransfer: integer("is_transfer", { mode: "boolean" }).notNull().default(false),
     transferPairId: integer("transfer_pair_id"),
     isExcluded: integer("is_excluded", { mode: "boolean" }).notNull().default(false),
@@ -108,6 +113,7 @@ export const transactions = sqliteTable(
     index("transactions_posted_idx").on(t.posted),
     index("transactions_account_posted_idx").on(t.accountId, t.posted),
     index("transactions_category_idx").on(t.categoryId),
+    index("transactions_merchant_idx").on(t.merchantKey),
   ],
 );
 

@@ -90,3 +90,6 @@ export function payeeKey(raw: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
 }
+
+/** The grouping key stored in `transactions.merchant_key`; never empty so every row groups somewhere. */
+export const merchantKey = (raw: string): string => payeeKey(raw) || "unknown";
