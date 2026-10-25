@@ -8,7 +8,7 @@ test("shell renders and navigates", async ({ page }) => {
   const nav = page.getByRole("navigation", { name: "Primary" }).filter({ visible: true });
   await nav.getByRole("link", { name: "Spending" }).click();
   await expect(page).toHaveURL(/\/spending$/);
-  await expect(page.getByRole("heading", { name: "Spending" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Spending", exact: true, level: 1 })).toBeVisible();
 });
 
 test("theme choice persists across reloads", async ({ page }) => {

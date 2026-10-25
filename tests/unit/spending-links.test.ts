@@ -35,7 +35,7 @@ describe("drill-down links", () => {
   });
 });
 
-import { calendarWeeks, intensity } from "@/components/spending/heatmap-utils";
+import { calendarWeeks, heatScale, intensity } from "@/components/spending/heatmap-utils";
 
 describe("heatmap helpers", () => {
   it("scales intensity from 0 to 4 relative to the busiest day", () => {
@@ -45,6 +45,22 @@ describe("heatmap helpers", () => {
     expect(intensity(251, 1000)).toBe(2);
     expect(intensity(1000, 1000)).toBe(4);
     expect(intensity(5, 0)).toBe(0);
+  });
+
+  it("scales against the 90th percentile so one huge day doesn't flatten the rest", () => {
+    const day = (cents: number, i: number) => ({
+      date: `2026-10-${String(i + 1).padStart(2, "0")}`,
+      cents,
+      future: false,
+    });
+    expect(heatScale([...Array(9).fill(1000), 185_000].map(day))).toBe(185_000); // with 10 days, the top one is the 90th percentile
+    expect(heatScale([...Array(19).fill(1000), 185_000].map(day))).toBe(1000); // 20 days: one outlier no longer sets the scale
+    const many = [...Array(29).fill(1000), 185_000].map(day);
+    expect(heatScale(many)).toBe(1000);
+    expect(intensity(1000, heatScale(many))).toBe(4); // ordinary days now show as busy rather than pale
+    expect(intensity(185_000, heatScale(many))).toBe(4); // the outlier is capped at the darkest shade
+    expect(heatScale([])).toBe(0);
+    expect(heatScale([day(0, 0)])).toBe(0);
   });
 
   it("lays days out in Sunday-first weeks with padding", () => {

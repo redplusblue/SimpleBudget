@@ -107,3 +107,103 @@ test("dashboard renders the full layout with 10,000 transactions", async ({ page
   expect(Date.now() - t0).toBeLessThan(6000);
   await expect(page.getByTestId("nw-change")).toContainText("%");
 });
+
+test.describe("spending analytics on 10,000 transactions", () => {
+  test("the report builds quickly and its sections agree with each other", async ({ page }) => {
+    const request = page.request;
+    const res = await request.get("/api/spending?from=2025-10-25&to=2026-10-24");
+    const dur = Number(/spending;dur=([\d.]+)/.exec(res.headers()["server-timing"] ?? "")?.[1]);
+    expect(dur).toBeGreaterThan(0);
+    expect(dur).toBeLessThan(300);
+    const r = await res.json();
+    const sum = (rows: Array<{ cents: number }>) => rows.reduce((s, x) => s + x.cents, 0);
+    expect(r.summary.spentCents).toBeGreaterThan(0);
+    expect(sum(r.categories)).toBe(r.summary.spentCents);
+    expect(sum(r.accounts)).toBe(r.summary.spentCents);
+    expect(sum(r.daily)).toBe(r.summary.spentCents);
+    expect(r.merchants).toHaveLength(15);
+  });
+
+  test("recurring charges: landlord, Netflix and Spotify are found; coffee and utilities are not", async ({
+    request,
+    page,
+  }) => {
+    await page.goto("/");
+    const r = await (await page.request.get("/api/recurring")).json();
+    const names = r.items.map((i: { name: string }) => i.name);
+    expect(names).toEqual(expect.arrayContaining(["ZELLE TO LANDLORD JANE", "NETFLIX.COM", "SPOTIFY USA"]));
+    for (const bad of [
+      "BLUE BOTTLE COFFEE",
+      "CITY UTILITIES BILL PAY",
+      "AMAZON MKTPLACE PMTS",
+      "CHASE CREDIT CRD AUTOPAY",
+    ])
+      expect(names).not.toContain(bad);
+    expect(r.items.every((i: { cadence: string }) => i.cadence === "monthly")).toBe(true);
+    expect(r.monthlyTotalCents).toBeGreaterThan(185_000 + 1_549 + 1_199 - 1);
+    void request;
+  });
+
+  test("the dashboard's Upcoming card lists the next recurring charges", async ({ page }) => {
+    await page.goto("/");
+    const list = page.getByTestId("upcoming-list");
+    await expect(list).toBeVisible();
+    await expect(list.getByRole("listitem").first()).toContainText(/\d+ days?|today|tomorrow|late/);
+    await expect(page.getByText(/a month across \d+ recurring charges?/)).toBeVisible();
+  });
+
+  test("category, merchant and calendar drill-downs land on a register with the same count", async ({ page }) => {
+    const qs = "from=2026-09-01&to=2026-09-30";
+    const r = await (await page.request.get(`/api/spending?${qs}`)).json();
+    const registerTotal = async () =>
+      Number((await page.getByText(/^[\d,]+ transactions?$/).textContent())!.replace(/\D/g, ""));
+
+    // a category row
+    const cat = r.categories.find((c: { id: number | null }) => c.id !== null);
+    await page.goto(`/spending?${qs}`);
+    await page
+      .getByTestId("category-table")
+      .getByRole("link", { name: new RegExp(cat.name) })
+      .first()
+      .click();
+    await expect(page.getByTestId("txn-row").first()).toBeVisible();
+    expect(await registerTotal()).toBe(cat.count);
+
+    // a merchant row
+    const merchant = r.merchants[1];
+    await page.goto(`/spending?${qs}`);
+    await page
+      .getByTestId("merchant-table")
+      .getByRole("link", { name: new RegExp(merchant.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) })
+      .first()
+      .click();
+    await expect(page.getByTestId("merchant-chip")).toBeVisible();
+    expect(await registerTotal()).toBe(merchant.count);
+
+    // a calendar day (September 2026 is a full month of data)
+    const busy = [...r.daily].sort((a: { cents: number }, b: { cents: number }) => b.cents - a.cents)[0];
+    await page.goto(`/spending?month=2026-09`);
+    await page
+      .getByTestId("heatmap")
+      .getByRole("link", {
+        name: new RegExp(
+          `${new Date(`${busy.date}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric" })}:`,
+        ),
+      })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`from=${busy.date}`));
+    const dayCount = (
+      await (await page.request.get(`/api/transactions?from=${busy.date}&to=${busy.date}&type=expense`)).json()
+    ).total;
+    expect(await registerTotal()).toBe(dayCount);
+  });
+
+  test("the trend chart and weekday chart render, and the page renders in well under 6 seconds", async ({ page }) => {
+    const t0 = Date.now();
+    await page.goto("/spending");
+    await expect(page.getByTestId("trends-chart")).toBeVisible();
+    await expect(page.getByTestId("weekday-chart")).toBeVisible();
+    await expect(page.getByTestId("recurring-total")).toBeVisible();
+    expect(Date.now() - t0).toBeLessThan(6000);
+  });
+});
