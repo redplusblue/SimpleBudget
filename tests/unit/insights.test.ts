@@ -9,6 +9,7 @@ import {
   largeTransactions,
   newMerchants,
   spendingPace,
+  staleManualAccounts,
   subscriptions,
   uncategorizedReminder,
 } from "@/lib/insights/generators";
@@ -251,6 +252,35 @@ describe("balanceAlerts", () => {
     });
     expect(byId["utilization:card-mid"]).toMatchObject({ severity: "info", title: "card-mid is at 40% of its limit" });
     expect(byId["utilization:card-high"].severity).toBe("warn");
+  });
+});
+
+describe("staleManualAccounts", () => {
+  it("flags manual accounts untouched for 30+ days, warning from 60", () => {
+    const { db, ctx } = setup();
+    const created = (date: string) => at(date);
+    addAccount(db, "fresh", { isManual: true, createdAt: created("2026-10-10") });
+    addAccount(db, "old", { isManual: true, displayName: "Cash jar", createdAt: created("2026-09-04") }); // 50 days
+    addAccount(db, "ancient", { isManual: true, createdAt: created("2026-08-01") }); // 84 days
+    addAccount(db, "synced", { createdAt: created("2026-01-01") }); // not manual
+    addAccount(db, "hidden", { isManual: true, isHidden: true, createdAt: created("2026-01-01") });
+    const out = staleManualAccounts(ctx());
+    expect(out.map((i) => [i.id, i.severity]).sort()).toEqual([
+      ["stale-manual:ancient", "warn"],
+      ["stale-manual:old", "info"],
+    ]);
+    expect(out.find((i) => i.id === "stale-manual:old")).toMatchObject({
+      title: "You haven't updated Cash jar in 50 days",
+      link: "/accounts/old",
+    });
+  });
+
+  it("counts a recent transaction as an update", () => {
+    const { db, ctx } = setup();
+    addAccount(db, "m", { isManual: true, createdAt: at("2026-01-01") });
+    expect(staleManualAccounts(ctx())).toHaveLength(1);
+    addTxn(db, "m", { posted: at("2026-10-20") });
+    expect(staleManualAccounts(ctx())).toHaveLength(0);
   });
 });
 

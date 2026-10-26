@@ -9,7 +9,7 @@ import { getInsights } from "@/lib/insights";
 
 const $ = (cents: number) => formatCents(cents);
 
-/** Insights that talk about spending patterns. Balance-related ones (`low-balance:`, `utilization:`) are opt-in. */
+/** Insights that talk about spending patterns. Balance-related ones (`low-balance:`, `utilization:`, `stale-manual:`) are opt-in. */
 const SPENDING_INSIGHTS = [
   "category-up:",
   "category-down:",
@@ -23,7 +23,7 @@ const SPENDING_INSIGHTS = [
   "duplicate:",
   "uncategorized",
 ];
-const BALANCE_INSIGHTS = ["low-balance:", "utilization:"];
+const BALANCE_INSIGHTS = ["low-balance:", "utilization:", "stale-manual:"];
 
 export interface AiContext {
   month: string;

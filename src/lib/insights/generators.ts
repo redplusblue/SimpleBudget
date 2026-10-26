@@ -1,12 +1,12 @@
 import { and, count, eq, gte, sql } from "drizzle-orm";
-import { accounts, categories, transactions } from "@/db/schema";
+import { accounts, balanceSnapshots, categories, transactions } from "@/db/schema";
 import { monthSpan, spendingHref, transactionsHref } from "@/components/spending/links";
 import { formatCents } from "@/lib/finance/cents";
-import { addDaysToDate, daysInMonth, monthRange, shiftMonth } from "@/lib/finance/dates";
+import { addDaysToDate, daysInMonth, localDateString, monthRange, shiftMonth } from "@/lib/finance/dates";
 import { MIN_OCCURRENCES } from "@/lib/finance/recurring";
 import { getSpendingReport, merchantName } from "@/lib/finance/spending-report";
 import { dailySpending } from "@/lib/finance/spending";
-import { noSplitsSql } from "@/lib/finance/sql";
+import { effectiveDateSql, noSplitsSql } from "@/lib/finance/sql";
 import { median, meanAndStdDev, type InsightContext, type TxnRow } from "./data";
 import type { Insight } from "./types";
 
@@ -26,6 +26,8 @@ export const PACE_MIN_DAYS = 5;
 export const PACE_BAND = 0.1;
 export const DUPLICATE_WINDOW_SECONDS = 48 * 3600;
 export const DUPLICATE_LOOKBACK_DAYS = 14;
+export const STALE_MANUAL_DAYS = 30;
+export const STALE_MANUAL_WARN_DAYS = 60;
 export const INCOME_MIN_CENTS = 100_00;
 export const INCOME_RECENT_DAYS = 7;
 export const INCOME_CHANGE_PCT = 0.02;
@@ -333,6 +335,43 @@ export const balanceAlerts: Generator = (ctx) => {
   return out;
 };
 
+/** Manual accounts nobody has touched for a while: their balance (and your net worth) is probably out of date. */
+export const staleManualAccounts: Generator = (ctx) => {
+  const out: Insight[] = [];
+  for (const a of ctx.db.select().from(accounts).where(eq(accounts.isManual, true)).all()) {
+    if (a.isHidden || a.isClosed) continue;
+    const snapshot = ctx.db
+      .select({ d: sql<string | null>`max(${balanceSnapshots.date})` })
+      .from(balanceSnapshots)
+      .where(eq(balanceSnapshots.accountId, a.id))
+      .get()?.d;
+    const txnAt = ctx.db
+      .select({ at: sql<number | null>`max(${effectiveDateSql})` })
+      .from(transactions)
+      .where(eq(transactions.accountId, a.id))
+      .get()?.at;
+    const dates = [
+      snapshot,
+      txnAt ? localDateString(txnAt, ctx.timeZone) : null,
+      localDateString(a.createdAt, ctx.timeZone),
+    ];
+    const last = dates
+      .filter((d): d is string => !!d)
+      .sort()
+      .at(-1)!;
+    const days = Math.round(dayNumber(ctx.today) - dayNumber(last));
+    if (days < STALE_MANUAL_DAYS) continue;
+    out.push({
+      id: `stale-manual:${a.id}`,
+      severity: days >= STALE_MANUAL_WARN_DAYS ? "warn" : "info",
+      title: `You haven't updated ${a.displayName || a.name} in ${days} days`,
+      body: "Update its balance so your net worth and goals stay accurate.",
+      link: `/accounts/${encodeURIComponent(a.id)}`,
+    });
+  }
+  return out;
+};
+
 /** A nudge when recent spending has piled up without a category. */
 export const uncategorizedReminder: Generator = (ctx) => {
   const since = ctx.now - 90 * 86_400;
@@ -371,6 +410,7 @@ export const uncategorizedReminder: Generator = (ctx) => {
 export const GENERATORS: Generator[] = [
   duplicateCharges,
   balanceAlerts,
+  staleManualAccounts,
   subscriptions,
   largeTransactions,
   categoryChanges,
