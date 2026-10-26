@@ -529,3 +529,86 @@ describe("tracked runs", () => {
     expect(db.select().from(aiRuns).all()).toHaveLength(2);
   });
 });
+
+describe("extra body and citations", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const sse = (events: unknown[]) =>
+    new Response(
+      new ReadableStream({
+        start(c) {
+          for (const e of events)
+            c.enqueue(new TextEncoder().encode(`data: ${typeof e === "string" ? e : JSON.stringify(e)}\n\n`));
+          c.close();
+        },
+      }),
+      { status: 200 },
+    );
+  const client = () => createOpenAiCompatibleClient({ model: "m", baseUrl: "http://x/v1" });
+
+  it("merges extraBody but never lets it override the model or messages", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(sse([{ choices: [{ delta: { content: "ok" }, finish_reason: "stop" }] }, "[DONE]"]));
+    vi.stubGlobal("fetch", fetchMock);
+    await client().generate({
+      system: "s",
+      user: "u",
+      extraBody: { plugins: [{ id: "web", max_results: 5 }], model: "evil", messages: [] },
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.plugins).toEqual([{ id: "web", max_results: 5 }]);
+    expect(body.model).toBe("m");
+    expect(body.messages).toHaveLength(2);
+  });
+
+  it("reports url_citation annotations from deltas and from a full message, ignoring the rest", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        sse([
+          {
+            choices: [
+              {
+                delta: {
+                  content: "x",
+                  annotations: [
+                    { type: "url_citation", url_citation: { url: "https://a.example/p", title: "A page" } },
+                    { type: "file_path", url: "https://ignored.example" },
+                    { type: "url_citation", url: "https://flat.example/q" },
+                    { type: "url_citation", url_citation: {} },
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            choices: [
+              {
+                message: { annotations: [{ type: "url_citation", url_citation: { url: "https://m.example" } }] },
+                finish_reason: "stop",
+              },
+            ],
+          },
+          "[DONE]",
+        ]),
+      ),
+    );
+    const seen: unknown[] = [];
+    await client().generate({ system: "s", user: "u", onAnnotations: (c) => seen.push(...c) });
+    expect(seen).toEqual([
+      { url: "https://a.example/p", title: "A page" },
+      { url: "https://flat.example/q" },
+      { url: "https://m.example" },
+    ]);
+  });
+
+  it("stays quiet without annotations", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(sse([{ choices: [{ delta: { content: "hi" }, finish_reason: "stop" }] }, "[DONE]"])),
+    );
+    const onAnnotations = vi.fn();
+    expect(await client().generate({ system: "s", user: "u", onAnnotations })).toBe("hi");
+    expect(onAnnotations).not.toHaveBeenCalled();
+  });
+});

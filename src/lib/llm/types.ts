@@ -21,6 +21,11 @@ export interface LlmUsage {
   costMicros: number | null;
 }
 
+export interface Citation {
+  url: string;
+  title?: string;
+}
+
 export interface GenerateRequest {
   system: string;
   user: string;
@@ -33,6 +38,13 @@ export interface GenerateRequest {
   onText?: (delta: string) => void;
   /** Called once per provider round-trip with that round's usage (a tool-using answer has several rounds). */
   onUsage?: (usage: LlmUsage) => void;
+  /**
+   * Extra fields merged into the request body (e.g. OpenRouter's `plugins`). Only server code sets this; they are
+   * added first, so they can never override the model, messages or token limit.
+   */
+  extraBody?: Record<string, unknown>;
+  /** Sources the provider cites for a web-backed answer, when it says so. Called once per round with any found. */
+  onAnnotations?: (citations: Citation[]) => void;
   maxTokens?: number;
   signal?: AbortSignal;
 }

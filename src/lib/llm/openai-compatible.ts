@@ -6,6 +6,7 @@ import {
   type GenerateRequest,
   type LlmClient,
   type LlmUsage,
+  type Citation,
 } from "./types";
 
 // Plain fetch against any server that speaks the OpenAI chat-completions protocol (OpenAI, Ollama, LM Studio, ...).
@@ -41,6 +42,18 @@ async function* sse(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
   }
   const rest = buffer.trim();
   if (rest.startsWith("data:")) yield rest.slice(5).trim();
+}
+
+/** `url_citation` annotations, nested (`{ url_citation: { url, title } }`) or flat; anything else is ignored. */
+function citationsFrom(annotations: unknown): Citation[] {
+  if (!Array.isArray(annotations)) return [];
+  return annotations.flatMap((a): Citation[] => {
+    if (!a || typeof a !== "object" || (a as { type?: unknown }).type !== "url_citation") return [];
+    const c = ((a as { url_citation?: unknown }).url_citation ?? a) as { url?: unknown; title?: unknown };
+    return typeof c.url === "string" && c.url
+      ? [{ url: c.url, ...(typeof c.title === "string" && c.title ? { title: c.title } : {}) }]
+      : [];
+  });
 }
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
@@ -87,6 +100,7 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
                 ...(opts.apiKey ? { authorization: `Bearer ${opts.apiKey}` } : {}),
               },
               body: JSON.stringify({
+                ...req.extraBody,
                 model: opts.model,
                 messages,
                 [tokenField]: req.maxTokens ?? DEFAULT_MAX_TOKENS,
@@ -143,6 +157,7 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
         const calls = new Map<number, ToolCall>();
         let finish: string | null = null;
         let usage: LlmUsage | undefined;
+        const citations: Citation[] = [];
         try {
           for await (const data of sse(res.body)) {
             if (data === "[DONE]") break;
@@ -151,6 +166,8 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
             const choice = parsed.choices?.[0];
             if (!choice) continue;
             const delta = choice.delta ?? {};
+            // Sources arrive on stream deltas, or on a full `message` from servers that don't stream them.
+            citations.push(...citationsFrom(delta.annotations), ...citationsFrom(choice.message?.annotations));
             if (typeof delta.content === "string" && delta.content) {
               content += delta.content;
               text += delta.content;
@@ -174,6 +191,7 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
         }
 
         if (usage) req.onUsage?.(usage);
+        if (citations.length) req.onAnnotations?.(citations);
 
         if (calls.size === 0 || !req.runTool) {
           if (finish === "content_filter") throw new LlmError("The AI provider declined to answer that.", "declined");
