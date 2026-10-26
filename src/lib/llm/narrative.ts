@@ -3,12 +3,12 @@ import type { DbLike } from "@/db/open";
 import { insightsCache, syncRuns } from "@/db/schema";
 import { currentMonth } from "@/lib/finance/dates";
 import { buildAiContext } from "./context";
-import { LLM_TOOLS, createToolRunner } from "./tools";
+import { ASK_TOOLS, createToolRunner } from "./tools";
 import type { ChatTurn, LlmClient } from "./types";
 
 export const SUMMARY_KIND = "summary";
 
-const BASE_SYSTEM = `You are a personal-finance assistant inside a self-hosted budgeting app. You only know what is in the data you are given or what the tools return.
+export const BASE_SYSTEM = `You are a personal-finance assistant inside a self-hosted budgeting app. You only know what is in the data you are given or what the tools return.
 - Use the exact figures provided; never invent or estimate numbers that are not there.
 - Amounts are US dollars. Spending is money going out; income is money coming in.
 - Be concise and plain-spoken. No lectures, no generic advice, no disclaimers about not being a financial advisor.`;
@@ -105,7 +105,7 @@ export async function answerQuestion(env: NarrativeEnv, question: string, histor
     system: `${BASE_SYSTEM}\nYou have read-only tools: get_period_report (any month or date range), get_monthly_trend (12 months), get_year_summary, get_recurring (subscriptions and bills), get_merchant_history, get_category_totals and search_transactions (individual purchases). Prefer them to guessing: call one whenever the summary below does not answer the question, and compare against earlier periods before calling something unusual. Today is in ${month}.\n\nSummary of this month:\n${JSON.stringify(context, null, 2)}`,
     history: history.slice(-MAX_HISTORY_TURNS),
     user: question.slice(0, MAX_QUESTION_CHARS),
-    tools: LLM_TOOLS,
+    tools: ASK_TOOLS,
     runTool: createToolRunner(env.db, env.now, env.timeZone),
     maxTokens: 1500,
   });

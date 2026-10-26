@@ -2,9 +2,16 @@ import "server-only";
 import { and, count, desc, eq, inArray, ne } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
 import { aiProposals, categories, tags, transactions } from "@/db/schema";
+import { createTarget } from "@/lib/finance/targets";
 import { applyRules, createRule, listRules, updateRule } from "@/lib/rules/store";
+import { addMemory } from "./memory";
 import {
+  memoryProposalPayload,
   proposalPreview,
+  targetProposalPayload,
+  type AnyProposalView,
+  type MemoryProposalPayload,
+  type TargetProposalPayload,
   ruleProposalPayload,
   type Confidence,
   type ProposalPreview,
@@ -49,7 +56,7 @@ function parseRow(row: Row): StoredRuleProposal | null {
 /** Rule proposals, newest first (max 200). Rows whose payload no longer parses are skipped. */
 export function listProposals(
   db: DbLike,
-  opts: { kind?: Row["kind"]; status?: Row["status"] | Row["status"][]; limit?: number } = {},
+  opts: { kind?: Row["kind"]; status?: Row["status"] | Row["status"][]; limit?: number; ids?: number[] } = {},
 ): StoredRuleProposal[] {
   const statuses = opts.status === undefined ? undefined : Array.isArray(opts.status) ? opts.status : [opts.status];
   return db
@@ -90,8 +97,9 @@ export function hasProposalFor(db: DbLike, subjectKeys: string[]): Set<string> {
 }
 
 export function dismissProposal(db: DbLike, id: number, now: number): void {
-  const p = getProposal(db, id);
-  if (p.row.status !== "pending") throw new ProposalError("conflict", "This suggestion was already handled.");
+  const row = db.select().from(aiProposals).where(eq(aiProposals.id, id)).get();
+  if (!row) throw new ProposalError("not_found", "Suggestion not found");
+  if (row.status !== "pending") throw new ProposalError("conflict", "This suggestion was already handled.");
   db.update(aiProposals).set({ status: "dismissed", resolvedAt: now }).where(eq(aiProposals.id, id)).run();
 }
 
@@ -209,7 +217,7 @@ export function acceptAll(
 /** What the Rules page shows: pending items get a fresh preview and a check that their category/tag still exists. */
 export function listProposalViews(
   db: DbLike,
-  opts: { kind?: Row["kind"]; status?: Row["status"] | Row["status"][] },
+  opts: { kind?: Row["kind"]; status?: Row["status"] | Row["status"][]; ids?: number[] },
   timeZone: string,
 ): ProposalView[] {
   const items = listProposals(db, opts);
@@ -241,11 +249,12 @@ export function listProposalViews(
     const valid = a.type === "category" ? liveCategories.has(a.categoryId) : liveTags.has(a.tagId);
     return {
       id: row.id,
-      kind: row.kind,
+      kind: "rule" as const,
       status: row.status,
       confidence: row.confidence,
       model: row.model,
       createdAt: row.createdAt,
+      threadId: row.threadId,
       payload,
       preview: fresh.get(row.id) ?? preview,
       stillValid: valid,
@@ -254,4 +263,110 @@ export function listProposalViews(
         : { problem: `The ${a.type} "${a.type === "category" ? a.categoryName : a.tagName}" no longer exists.` }),
     };
   });
+}
+
+export function insertProposal(db: DbLike, row: NewProposal): number {
+  return db.insert(aiProposals).values(row).returning({ id: aiProposals.id }).get().id;
+}
+
+type AnyRow = typeof aiProposals.$inferSelect;
+
+/** One proposal of any kind as the UI sees it. Rule previews are recomputed while pending. */
+export function viewOf(db: DbLike, row: AnyRow, timeZone: string): AnyProposalView | null {
+  const base = {
+    id: row.id,
+    status: row.status,
+    confidence: row.confidence,
+    model: row.model,
+    createdAt: row.createdAt,
+    threadId: row.threadId,
+  };
+  try {
+    const json: unknown = JSON.parse(row.payloadJson);
+    if (row.kind === "rule") {
+      return listProposalViews(db, { kind: "rule", ids: [row.id] }, timeZone)[0] ?? null;
+    }
+    if (row.kind === "memory") {
+      return { ...base, kind: "memory", payload: memoryProposalPayload.parse(json), stillValid: true };
+    }
+    const payload = targetProposalPayload.parse(json);
+    const cat = db.select().from(categories).where(eq(categories.id, payload.categoryId)).get();
+    const valid = !!cat && !cat.isArchived;
+    return {
+      ...base,
+      kind: "target",
+      payload,
+      stillValid: valid,
+      ...(valid ? {} : { problem: `The category "${payload.categoryName}" no longer exists.` }),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Every proposal made in a conversation (any kind, any status), oldest first. */
+export function listThreadProposals(db: DbLike, threadId: number, timeZone: string): AnyProposalView[] {
+  const rows = db.select().from(aiProposals).where(eq(aiProposals.threadId, threadId)).orderBy(aiProposals.id).all();
+  const ruleIds = rows.filter((r) => r.kind === "rule").map((r) => r.id);
+  const rules = ruleIds.length ? listProposalViews(db, { kind: "rule", ids: ruleIds }, timeZone) : [];
+  return rows.flatMap((r) =>
+    r.kind === "rule" ? (rules.find((v) => v.id === r.id) ?? []) : (viewOf(db, r, timeZone) ?? []),
+  );
+}
+
+export function getProposalView(db: DbLike, id: number, timeZone: string): AnyProposalView {
+  const row = db.select().from(aiProposals).where(eq(aiProposals.id, id)).get();
+  const view = row && viewOf(db, row, timeZone);
+  if (!view) throw new ProposalError("not_found", "Suggestion not found");
+  return view;
+}
+
+function loadPending(tx: DbLike, id: number, kind: AnyRow["kind"]): AnyRow {
+  const row = tx.select().from(aiProposals).where(eq(aiProposals.id, id)).get();
+  if (!row) throw new ProposalError("not_found", "Suggestion not found");
+  if (row.kind !== kind || row.status !== "pending")
+    throw new ProposalError("conflict", "This suggestion was already handled.");
+  return row;
+}
+
+export function acceptMemoryProposal(db: DbLike, id: number, now: number): { memoryId: number } {
+  return db.transaction((tx) => {
+    const row = loadPending(tx, id, "memory");
+    const payload: MemoryProposalPayload = memoryProposalPayload.parse(JSON.parse(row.payloadJson));
+    const memory = addMemory(tx, payload.text, "assistant", now);
+    tx.update(aiProposals).set({ status: "accepted", resolvedAt: now }).where(eq(aiProposals.id, id)).run();
+    return { memoryId: memory.id };
+  });
+}
+
+/** A recurring (every month) category target through the normal target code. */
+export function acceptTargetProposal(db: DbLike, id: number, now: number): { targetId: number } {
+  return db.transaction((tx) => {
+    const row = loadPending(tx, id, "target");
+    const payload: TargetProposalPayload = targetProposalPayload.parse(JSON.parse(row.payloadJson));
+    const target = createTarget(tx, {
+      kind: "category",
+      subjectId: payload.categoryId,
+      amountCents: payload.amountCents,
+    });
+    tx.update(aiProposals).set({ status: "accepted", resolvedAt: now }).where(eq(aiProposals.id, id)).run();
+    return { targetId: target.id };
+  });
+}
+
+export type AcceptAnyResult =
+  (AcceptResult & { kind: "rule" }) | { kind: "memory"; memoryId: number } | { kind: "target"; targetId: number };
+
+/** Applies a proposal through the normal code path for its kind. */
+export function acceptProposal(
+  db: DbLike,
+  id: number,
+  opts: { categoryId?: number; applyExisting: boolean },
+  now: number,
+): AcceptAnyResult {
+  const row = db.select().from(aiProposals).where(eq(aiProposals.id, id)).get();
+  if (!row) throw new ProposalError("not_found", "Suggestion not found");
+  if (row.kind === "memory") return { kind: "memory", ...acceptMemoryProposal(db, id, now) };
+  if (row.kind === "target") return { kind: "target", ...acceptTargetProposal(db, id, now) };
+  return { kind: "rule", ...acceptRuleProposal(db, id, opts, now) };
 }

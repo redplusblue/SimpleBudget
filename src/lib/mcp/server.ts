@@ -88,7 +88,7 @@ export function handleMcpLine(line: string, ctx: McpContext): object | null {
                   includeBalances: ctx.includeBalances,
                 }),
               )
-            : createToolRunner(ctx.db, now, ctx.timeZone)(name, msg.params?.arguments ?? {});
+            : createToolRunner(ctx.db, now, ctx.timeZone, ctx.includeBalances)(name, msg.params?.arguments ?? {});
         return reply(msg.id, { content: [{ type: "text", text }] });
       } catch (e) {
         // Tool failures are reported to the model as results, so it can correct its arguments.

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/db/client";
-import { acceptRuleProposal } from "@/lib/ai/proposals";
+import { acceptProposal } from "@/lib/ai/proposals";
 import { errorResponse, readJson } from "@/lib/api-errors";
 import { requireApiAuth } from "@/lib/auth";
 
@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!id.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   try {
     const input = body.parse((await readJson(request)) ?? {});
-    return NextResponse.json(acceptRuleProposal(getDb(), id.data, input, Math.floor(Date.now() / 1000)));
+    return NextResponse.json(acceptProposal(getDb(), id.data, input, Math.floor(Date.now() / 1000)));
   } catch (e) {
     return errorResponse(e);
   }

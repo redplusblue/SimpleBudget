@@ -34,16 +34,41 @@ export type ProposalPreview = z.infer<typeof proposalPreview>;
 
 export type Confidence = "low" | "medium" | "high";
 
-export interface ProposalView {
+export const memoryProposalPayload = z.object({ text: z.string().min(1).max(300) });
+export type MemoryProposalPayload = z.infer<typeof memoryProposalPayload>;
+
+export const targetProposalPayload = z.object({
+  categoryId: z.number().int().positive(),
+  categoryName: z.string(),
+  amountCents: z.number().int().positive(),
+});
+export type TargetProposalPayload = z.infer<typeof targetProposalPayload>;
+
+interface ProposalViewBase {
   id: number;
-  kind: "rule" | "memory" | "target";
   status: "pending" | "accepted" | "dismissed" | "no_match" | "stale";
   confidence: Confidence | null;
   model: string | null;
   createdAt: number;
-  payload: RuleProposalPayload;
-  preview: ProposalPreview | null;
-  /** False when the category or tag it points at has been deleted or archived. */
+  /** The conversation that produced it, if any. */
+  threadId: number | null;
+  /** False when what it points at (category, tag) has been deleted or archived. */
   stillValid: boolean;
   problem?: string;
 }
+
+/** A rule suggestion (from the suggestion job or the assistant). */
+export interface ProposalView extends ProposalViewBase {
+  kind: "rule";
+  payload: RuleProposalPayload;
+  preview: ProposalPreview | null;
+}
+export interface MemoryProposalView extends ProposalViewBase {
+  kind: "memory";
+  payload: MemoryProposalPayload;
+}
+export interface TargetProposalView extends ProposalViewBase {
+  kind: "target";
+  payload: TargetProposalPayload;
+}
+export type AnyProposalView = ProposalView | MemoryProposalView | TargetProposalView;
