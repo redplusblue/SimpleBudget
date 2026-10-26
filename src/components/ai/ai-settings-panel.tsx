@@ -9,10 +9,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { AI_FEATURES, FEATURE_LABELS, parseModelListJson, type AiFeature, type ModelEntry } from "@/lib/llm/models";
 import { ApiError, fetchJson, jsonBody } from "@/lib/fetch-json";
-import { AI_CONFIG_KEY, useAiConfig } from "./ai-config";
+import { AI_CONFIG_KEY, useAiConfig, type AiConfig } from "./ai-config";
+import { AI_USAGE_KEY } from "./ai-usage-card";
+
+const UNSET = "__default";
+
+/** The list only counts as explicit when it says more than the single fallback model. */
+const explicitList = (cfg: AiConfig) =>
+  cfg.models.length === 1 && cfg.models[0].id === cfg.model && Object.keys(cfg.models[0]).length === 1
+    ? ""
+    : JSON.stringify(cfg.models, null, 2);
 
 export function AiSettingsPanel() {
   const qc = useQueryClient();
@@ -25,6 +37,9 @@ export function AiSettingsPanel() {
   const [includeBalances, setIncludeBalances] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [modelsText, setModelsText] = useState("");
+  const [featureModels, setFeatureModels] = useState<Partial<Record<AiFeature, string>>>({});
+  const [budget, setBudget] = useState("");
 
   useEffect(() => {
     if (!cfg) return;
@@ -32,16 +47,45 @@ export function AiSettingsPanel() {
     setModel(cfg.model);
     setBaseUrl(cfg.baseUrl);
     setIncludeBalances(cfg.includeBalances);
+    setModelsText(explicitList(cfg));
+    setFeatureModels(cfg.featureModels);
+    setBudget(cfg.monthlyBudgetMicros === null ? "" : String(cfg.monthlyBudgetMicros / 1_000_000));
   }, [cfg]);
+
+  // Parsed as the user types so the feature pickers offer unsaved models and Save is disabled while invalid.
+  const parsedModels = (() => {
+    if (!modelsText.trim()) return { list: null as ModelEntry[] | null, error: null as string | null };
+    try {
+      return { list: parseModelListJson(modelsText), error: null };
+    } catch (e) {
+      return { list: null, error: e instanceof Error ? e.message : "The model list isn't valid." };
+    }
+  })();
+  const budgetNumber = budget.trim() === "" ? null : Number(budget);
+  const budgetInvalid = budgetNumber !== null && (!Number.isFinite(budgetNumber) || budgetNumber < 0);
+  const choices: ModelEntry[] = parsedModels.list ?? (model ? [{ id: model }] : []);
 
   const save = useMutation({
     mutationFn: (extra: { apiKey?: string | null } = {}) =>
-      fetchJson("/api/settings/ai", jsonBody("PUT", { enabled, model, baseUrl, includeBalances, ...extra })),
+      fetchJson(
+        "/api/settings/ai",
+        jsonBody("PUT", {
+          enabled,
+          model,
+          baseUrl,
+          includeBalances,
+          models: parsedModels.list,
+          featureModels: Object.keys(featureModels).length > 0 ? featureModels : null,
+          monthlyBudgetMicros: budgetNumber === null ? null : Math.round(budgetNumber * 1_000_000),
+          ...extra,
+        }),
+      ),
     onSuccess: () => {
       setApiKey("");
       setError(null);
       qc.invalidateQueries({ queryKey: AI_CONFIG_KEY });
       qc.invalidateQueries({ queryKey: ["ai-summary"] });
+      qc.invalidateQueries({ queryKey: AI_USAGE_KEY });
       toast.success("AI settings saved");
     },
     onError: (e) => setError(e instanceof ApiError ? e.message : "Couldn't save the settings"),
@@ -125,7 +169,7 @@ export function AiSettingsPanel() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="ai-model">Model</Label>
+            <Label htmlFor="ai-model">Default model</Label>
             <Input
               id="ai-model"
               placeholder="e.g. anthropic/claude-sonnet-4.5 or openai/gpt-4o-mini"
@@ -135,6 +179,87 @@ export function AiSettingsPanel() {
               autoCapitalize="none"
               spellCheck={false}
             />
+            <p className="text-xs text-muted-foreground">Used by any feature without its own choice below.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ai-models">Models you allow</Label>
+            <Textarea
+              id="ai-models"
+              rows={6}
+              className="font-mono text-xs"
+              spellCheck={false}
+              autoCapitalize="none"
+              placeholder={
+                '[\n  { "id": "google/gemini-2.5-flash-lite", "label": "Cheap" },\n  { "id": "anthropic/claude-sonnet-4.5", "label": "Smart" }\n]'
+              }
+              value={modelsText}
+              onChange={(e) => setModelsText(e.target.value)}
+              aria-invalid={parsedModels.error ? true : undefined}
+            />
+            {parsedModels.error && (
+              <p role="alert" className="text-sm text-negative">
+                {parsedModels.error}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              One server and key are shared by all models. Add optional <code>inputPerMTok</code>/
+              <code>outputPerMTok</code> (USD per million tokens) to estimate costs when your server doesn&apos;t report
+              them. Leave empty to use only the default model.
+            </p>
+          </div>
+
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">Default model for each feature</legend>
+            <div className="grid gap-3 md:grid-cols-2">
+              {AI_FEATURES.map((f) => (
+                <div key={f} className="space-y-1">
+                  <Label htmlFor={`ai-feature-${f}`} className="text-xs font-normal text-muted-foreground">
+                    {FEATURE_LABELS[f]}
+                  </Label>
+                  <Select
+                    value={featureModels[f] ?? UNSET}
+                    onValueChange={(v) =>
+                      setFeatureModels((prev) => {
+                        const next = { ...prev };
+                        if (v === UNSET) delete next[f];
+                        else next[f] = v;
+                        return next;
+                      })
+                    }
+                  >
+                    <SelectTrigger id={`ai-feature-${f}`} className="h-11 w-full md:h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={UNSET}>Same as default ({model || "none"})</SelectItem>
+                      {choices.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.label ?? m.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+          </fieldset>
+
+          <div className="space-y-2">
+            <Label htmlFor="ai-budget">Monthly AI budget (USD)</Label>
+            <Input
+              id="ai-budget"
+              inputMode="decimal"
+              placeholder="No cap"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              className="h-11 md:h-9"
+              aria-invalid={budgetInvalid ? true : undefined}
+            />
+            <p className="text-xs text-muted-foreground">
+              Every AI request is refused once this month&apos;s cost reaches it. Empty means no cap; <code>0</code>{" "}
+              pauses all AI.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -195,7 +320,11 @@ export function AiSettingsPanel() {
             >
               {test.isPending && <Loader2 className="animate-spin" />} Test connection
             </Button>
-            <Button type="submit" className="h-11 md:h-9" disabled={save.isPending}>
+            <Button
+              type="submit"
+              className="h-11 md:h-9"
+              disabled={save.isPending || !!parsedModels.error || budgetInvalid}
+            >
               {save.isPending && <Loader2 className="animate-spin" />} Save
             </Button>
           </div>

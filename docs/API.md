@@ -60,7 +60,8 @@ Handlers are thin: logic and zod validation are in `src/lib/...`; read the match
 | PUT | `/api/rules/order` | Sets rule priority: the first id runs first. |
 | POST | `/api/rules/preview` | "Matches N existing transactions" for a rule that may not be saved yet. Nothing is changed. |
 | GET | `/api/settings/ai` | The AI settings. The API key is write-only: responses say whether one is saved, never what it is. |
-| PUT | `/api/settings/ai` | Update AI settings: `{ enabled?, baseUrl?, model?, includeBalances?, apiKey? (string saves, null removes) }`. Turning on needs a server address and a model. |
+| PUT | `/api/settings/ai` | Update AI settings: `{ enabled?, baseUrl?, model?, includeBalances?, apiKey? (string saves, null removes), models? (parsed `[{id,label?,inputPerMTok?,outputPerMTok?}]`, null clears), featureModels? (`{ feature: modelId }`, null clears), monthlyBudgetMicros? (null = no cap, 0 = pause AI) }`. Feature defaults and the default model must be in the model list. Turning on needs a server address and a model. |
+| GET | `/api/ai/usage` | This month's AI spend vs budget, per-feature totals and the last 20 runs (no prompt text). |
 | POST | `/api/settings/ai/test` | Sends a tiny fixed prompt (no financial data) to check the key, model and URL. |
 | GET | `/api/settings/currency` | The non-dollar currencies your accounts use, and the rate saved for each. |
 | PUT | `/api/settings/currency` | `{ rates: { EUR: 1.0856 } }`: 1 unit of the currency in US dollars. |

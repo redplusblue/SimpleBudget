@@ -45,6 +45,7 @@ describe("middleware", () => {
     "/api/insights/ask",
     "/api/settings/ai",
     "/api/settings/ai/test",
+    "/api/ai/usage",
     "/api/transactions/1/splits",
     "/api/accounts/x/balance",
     "/api/accounts/x/transactions",
