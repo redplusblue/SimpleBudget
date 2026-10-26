@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { DbLike } from "@/db/open";
 import { notifyDestinations, NOTIFY_DESTINATION_KINDS } from "@/db/schema";
 import { decrypt, encrypt } from "@/lib/crypto";
+import { automationsUsingDestination } from "./store";
 import { notifyUrlProblem } from "@/lib/notify/url";
 import { sendNotification, type Notification } from "@/lib/notify/send";
 
@@ -118,6 +119,12 @@ export function updateDestination(db: DbLike, id: number, input: unknown): Desti
 export function deleteDestination(db: DbLike, id: number): void {
   if (!db.select({ id: notifyDestinations.id }).from(notifyDestinations).where(eq(notifyDestinations.id, id)).get())
     throw new DestinationError("not_found", "Destination not found");
+  const used = automationsUsingDestination(db, id);
+  if (used > 0)
+    throw new DestinationError(
+      "conflict",
+      `${used} automation${used === 1 ? " uses" : "s use"} this destination. Change or delete ${used === 1 ? "it" : "them"} first.`,
+    );
   db.delete(notifyDestinations).where(eq(notifyDestinations.id, id)).run();
 }
 

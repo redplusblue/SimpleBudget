@@ -369,3 +369,42 @@ export const notifyDestinations = sqliteTable("notify_destinations", {
   tokenEnc: text("token_enc"),
   createdAt: integer("created_at").notNull(),
 });
+
+/** trigger → action → destination. Triggers and actions are validated JSON (src/lib/automations/types.ts). */
+export const automations = sqliteTable("automations", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  triggerJson: text("trigger_json").notNull(),
+  actionJson: text("action_json").notNull(),
+  destinationId: integer("destination_id")
+    .notNull()
+    .references(() => notifyDestinations.id),
+  /** Model for AI actions (must be in the model list); null for actions that don't use AI. */
+  model: text("model"),
+  /** Include payee and account names in messages. Off by default. */
+  includeDetails: integer("include_details", { mode: "boolean" }).notNull().default(false),
+  lastRunAt: integer("last_run_at"),
+  lastStatus: text("last_status"),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const automationRuns = sqliteTable(
+  "automation_runs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    automationId: integer("automation_id")
+      .notNull()
+      .references(() => automations.id, { onDelete: "cascade" }),
+    startedAt: integer("started_at").notNull(),
+    status: text("status", { enum: ["sent", "skipped", "error"] }).notNull(),
+    /** Why it was skipped or failed, in plain words (never a URL or provider error text). */
+    reason: text("reason"),
+    /** For once-only triggers, e.g. "target:<categoryId>:<month>" or "balance:<accountId>:<date>". */
+    dedupeKey: text("dedupe_key"),
+    aiRunId: integer("ai_run_id").references(() => aiRuns.id, { onDelete: "set null" }),
+    /** The first 200 characters of what was sent. */
+    preview: text("preview"),
+  },
+  (t) => [index("automation_runs_auto_idx").on(t.automationId, t.startedAt)],
+);
