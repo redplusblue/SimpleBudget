@@ -263,6 +263,11 @@ async function execute(db: Db, p: Plan, opts: SyncOptions): Promise<SyncResult> 
     .then((m) => m.maybeSuggestRules(db, "after_sync", now, tz))
     .catch((err) => logger.warn({ err }, "rule suggestions failed"));
 
+  // Automations the owner set up (transaction, target and balance triggers). Same rule: never delays or fails a sync.
+  void import("@/lib/automations/fire")
+    .then((m) => m.runAutomationsAfterSync(db, { newIds: stats.newIds }, now, tz))
+    .catch((err) => logger.warn({ err }, "automations failed"));
+
   return {
     ok: true,
     runId: run.id,

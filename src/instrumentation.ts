@@ -9,5 +9,7 @@ export async function register() {
     startBackupScheduler();
     const { startRuleSuggestScheduler } = await import("./lib/ai/rule-runner");
     startRuleSuggestScheduler();
+    const { rescheduleAutomations } = await import("./lib/automations/scheduler");
+    rescheduleAutomations();
   }
 }

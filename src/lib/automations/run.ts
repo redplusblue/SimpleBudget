@@ -34,6 +34,8 @@ export interface RunContext {
   trigger: "schedule" | "after_sync" | "manual";
   /** For transaction triggers: what matched. */
   matches?: TxnLite[];
+  /** Extra template variables for triggers that aren't a transaction (e.g. the category that went over). */
+  vars?: Partial<Record<TemplateVariable, string>>;
   /** Once-only triggers: a `sent` run with the same key means it already fired. */
   dedupeKey?: string;
   deps?: {
@@ -128,6 +130,7 @@ export async function runAutomation(db: DbLike, a: AutomationView, ctx: RunConte
       month_spent: formatCents(report.summary.spentCents),
       month_income: formatCents(report.summary.incomeCents),
       today: new Date(ctx.now * 1000).toLocaleDateString("en-CA", { timeZone: ctx.timeZone }),
+      ...ctx.vars,
     };
     const action = a.action;
     const details = a.includeDetails;
