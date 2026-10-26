@@ -53,12 +53,17 @@ const PROPOSAL_RULES =
  * The stable part of the system prompt: nothing in it depends on the date, so providers that cache prompt prefixes
  * can reuse it. Order: base rules, lens, tool guide, proposal rules, memories.
  */
-export function stablePrompt(db: DbLike, lens: LensId, tools: LlmTool[]): string {
+export function stablePrompt(
+  db: DbLike,
+  lens: LensId,
+  tools: LlmTool[],
+  canPropose = LENSES[lens].proposals.length > 0,
+): string {
   const l = LENSES[lens];
   const guide = tools.length
     ? `Tools you may call:\n${tools.map((t) => `- ${t.name}: ${t.description}`).join("\n")}`
     : "";
-  const proposes = l.proposals.length ? PROPOSAL_RULES : "You cannot change anything; only answer.";
+  const proposes = canPropose ? PROPOSAL_RULES : "You cannot change anything; only answer.";
   return [BASE_SYSTEM, `Focus (${l.label}): ${l.instructions}`, guide, proposes, memoryPromptBlock(db)]
     .filter(Boolean)
     .join("\n\n");
@@ -86,7 +91,8 @@ function costOf(db: DbLike, runId: number | null): number | null {
 /** One user turn: saves it, answers (streaming through `emit`), saves the answer and keeps the summary current. */
 export async function chat(
   env: ChatEnv,
-  input: { threadId?: number; lens: LensId; text: string },
+  /** `readOnly` (used by automations) offers the read tools only: nothing can be proposed. */
+  input: { threadId?: number; lens: LensId; text: string; readOnly?: boolean },
   emit: (e: ChatEvent) => void,
 ): Promise<void> {
   const { db } = env;
@@ -119,7 +125,9 @@ export async function chat(
     .all()
     .reverse();
 
-  const { read, propose } = toolsForLens(lens);
+  const tools = toolsForLens(lens);
+  const read = tools.read;
+  const propose = input.readOnly ? [] : tools.propose;
   const month = currentMonth(env.now, env.timeZone);
   const summary = buildAiContext(db, {
     now: env.now,
@@ -127,7 +135,7 @@ export async function chat(
     month,
     includeBalances: env.includeBalances,
   });
-  const system = `${stablePrompt(db, lens, [...read, ...propose])}\n\nToday is ${localDateString(env.now, env.timeZone)}.${
+  const system = `${stablePrompt(db, lens, [...read, ...propose], propose.length > 0)}\n\nToday is ${localDateString(env.now, env.timeZone)}.${
     thread.summary ? `\nEarlier in this conversation: ${thread.summary}` : ""
   }\nSummary of this month:\n${JSON.stringify(summary)}`;
 
