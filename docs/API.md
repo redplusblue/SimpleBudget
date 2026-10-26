@@ -64,6 +64,13 @@ Handlers are thin: logic and zod validation are in `src/lib/...`; read the match
 | GET | `/api/ai/usage` | This month's AI spend vs budget, per-feature totals and the last 20 runs (no prompt text). |
 | GET | `/api/transactions/[id]/trace` | `{ trace }`: the merchant's computed history for this transaction (stats, position, cadence, price changes, 24 months, related refunds/duplicates/transfer, similar merchants, categories, covering rule). No AI. 404 when missing. |
 | POST | `/api/transactions/[id]/trace/explain` | `{ model?, question? }` streams NDJSON `text`, `proposal`, then `done` or `error`. Sends statistics only; budget-checked; manual. |
+| GET / POST | `/api/automations` | List / create an automation `{ name, enabled?, trigger, action, destinationId, model?, includeDetails? }`. Triggers: `schedule` (preset every day/week/month, no free cron), `transaction` (rule-style conditions), `target_exceeded`, `balance_below`. Actions: `message` (template), `fact`, `ai_insight`, `ai_prompt`. AI actions need a model from the list. Max 30. |
+| GET / PATCH / DELETE | `/api/automations/[id]` | Read / `{ enabled }` toggles, any other body replaces the definition / delete. Timers are rescheduled after each change. |
+| POST | `/api/automations/[id]/run` | Run now (a transaction trigger uses the newest matching transaction of the last 30 days as the example). `{ status: sent\|skipped\|error, reason? }`. |
+| GET | `/api/automations/[id]/runs` | The last 50 runs (status, plain reason, first 200 characters of the message). |
+| GET / POST | `/api/automations/destinations` | Destinations (ntfy, webhook, Discord). Responses carry name, kind and host only; the address and token are write-only. |
+| PATCH / DELETE | `/api/automations/destinations/[id]` | Update (address/token write-only) / delete (409 while an automation uses it). |
+| POST | `/api/automations/destinations/[id]/test` | Sends a fixed test message. |
 | GET / POST | `/api/ai/insights` | `GET ?limit=` saved cards (pinned first, dismissed hidden). `POST { lens?, model?, count? }` generates a batch from computed facts (no facts = no model call; budget-checked). |
 | PATCH | `/api/ai/insights/[id]` | `{ pinned?, dismissed? }`. |
 | GET / POST | `/api/ai/memories` | List / add a memory `{ text }` (3-300 chars, max 50). Sent with every AI request. |
