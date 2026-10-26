@@ -8,7 +8,11 @@ const MOCK_PORT = 3198;
 test.describe.configure({ mode: "serial" });
 
 interface Recorded {
-  body: { messages: Array<{ role: string; content: string | null; tool_calls?: unknown }>; tools?: unknown[] };
+  body: {
+    model?: string;
+    messages: Array<{ role: string; content: string | null; tool_calls?: unknown }>;
+    tools?: unknown[];
+  };
   auth: string | undefined;
 }
 
@@ -92,7 +96,7 @@ test("configure a provider, then get a streamed summary and an answer that used 
   await expect(page.getByText("Only aggregated data is sent")).toBeVisible();
   await page.getByLabel("Turn on AI features").click();
   await page.getByLabel("Server address").fill(`http://127.0.0.1:${MOCK_PORT}/v1`);
-  await page.getByLabel("Model").fill("mock-model");
+  await page.getByLabel("Default model", { exact: true }).fill("mock-model");
   await page.getByLabel(/API key/).fill("sk-test-key-123456");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("AI settings saved")).toBeVisible();
@@ -159,6 +163,41 @@ test("a failing provider degrades gracefully and the insights stay visible", asy
   } finally {
     mode = "ok";
   }
+});
+
+test("a model list lets the Ask box pick a model for one request", async ({ page }) => {
+  await login(page);
+  const put = await page.request.put("/api/settings/ai", {
+    data: {
+      models: [
+        { id: "mock-model", label: "Cheap" },
+        { id: "mock-smart", label: "Smart" },
+      ],
+      featureModels: { chat: "mock-model" },
+    },
+  });
+  expect(put.status()).toBe(200);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/insights");
+  await page.getByLabel("Model for this request").last().click();
+  await page.getByRole("option", { name: "Smart" }).click();
+  requests = [];
+  await page.getByLabel("Your question").fill("Where does my money go?");
+  await page.getByRole("button", { name: "Ask" }).click();
+  await expect(page.getByTestId("ai-chat")).toContainText("You spent the most on");
+  expect(requests.length).toBeGreaterThan(0);
+  expect(requests.every((r) => r.body.model === "mock-smart")).toBe(true);
+  await expectNoHorizontalOverflow(page);
+
+  // A model outside the list is refused by the server.
+  const bad = await page.request.post("/api/insights/ask", { data: { question: "hi", model: "not-listed" } });
+  expect(bad.status()).toBe(400);
+
+  await page.goto("/settings/ai");
+  await expect(page.getByText("AI usage this month")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Recent AI requests" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.request.put("/api/settings/ai", { data: { models: null, featureModels: null } });
 });
 
 test("the AI settings and panel fit a phone, and AI can be turned off again", async ({ page }) => {

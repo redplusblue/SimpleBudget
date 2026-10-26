@@ -11,6 +11,7 @@ import { ApiError, fetchJson, jsonBody } from "@/lib/fetch-json";
 import type { CachedSummary } from "@/lib/llm/narrative";
 import { useAiConfig } from "./ai-config";
 import { MarkdownLite } from "./markdown-lite";
+import { ModelPicker } from "./model-picker";
 
 const SUMMARY_KEY = ["ai-summary"] as const;
 
@@ -29,13 +30,17 @@ function SummaryCard() {
   const [streaming, setStreaming] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [model, setModel] = useState<string>();
 
   async function generate() {
     setBusy(true);
     setError(null);
     setStreaming("");
     try {
-      const res = await fetch("/api/insights/summary", { method: "POST" });
+      const res = await fetch("/api/insights/summary", {
+        method: "POST",
+        ...(model ? jsonBody("POST", { model }) : {}),
+      });
       if (!res.ok || !res.body) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.message ?? "Couldn't reach the summary service.");
@@ -81,10 +86,13 @@ function SummaryCard() {
           <h2 id="ai-summary-title" className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <Sparkles className="size-4" aria-hidden /> Monthly summary
           </h2>
-          <Button variant="outline" size="sm" onClick={generate} disabled={busy} className="h-9">
-            {busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-            {summary || streaming ? "Regenerate" : "Write summary"}
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ModelPicker feature="insights" value={model} onChange={setModel} className="w-44" />
+            <Button variant="outline" size="sm" onClick={generate} disabled={busy} className="h-11 md:h-9">
+              {busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              {summary || streaming ? "Regenerate" : "Write summary"}
+            </Button>
+          </div>
         </div>
         {saved.isPending && !shown ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
@@ -112,6 +120,7 @@ function AskCard() {
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [model, setModel] = useState<string>();
   const endRef = useRef<HTMLDivElement>(null);
 
   async function ask() {
@@ -125,7 +134,7 @@ function AskCard() {
     try {
       const { answer } = await fetchJson<{ answer: string }>(
         "/api/insights/ask",
-        jsonBody("POST", { question: q, history }),
+        jsonBody("POST", { question: q, history, ...(model ? { model } : {}) }),
       );
       setTurns((t) => [...t, { role: "assistant", content: answer || "I don't have an answer for that." }]);
     } catch (e) {
@@ -157,6 +166,7 @@ function AskCard() {
             {error}
           </p>
         )}
+        <ModelPicker feature="chat" value={model} onChange={setModel} className="w-full md:w-64" />
         <form
           className="flex gap-2"
           onSubmit={(e) => {
