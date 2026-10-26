@@ -40,6 +40,8 @@ export interface Fact {
   sensitive: boolean;
   /** Built here from ids we own, never from model output. */
   link?: string;
+  /** Where public data came from (https links the provider cited), for benchmark facts only. */
+  sources?: Array<{ url: string; title?: string }>;
 }
 
 export interface FactEnv {
