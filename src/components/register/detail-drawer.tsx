@@ -2,11 +2,12 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeftRight, Pencil, Plus, Trash2, Wand2, X } from "lucide-react";
+import { ArrowLeftRight, History, Pencil, Plus, Trash2, Wand2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Money } from "@/components/money";
+import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,7 @@ import { CategorySelect } from "./category-select";
 import { ManualTransactionDialog } from "@/components/accounts/manual-transaction-dialog";
 import { useRefreshMoney } from "@/hooks/use-refresh-money";
 import { SplitEditor } from "./split-editor";
+import { TracePanel } from "./trace-panel";
 import { TagPicker } from "./tag-picker";
 import { txDetailKey, useUpdateTransaction } from "./use-transactions";
 
@@ -86,6 +88,7 @@ function DrawerBody({
   const [payee, setPayee] = useState("");
   const [notes, setNotes] = useState("");
   const [rawOpen, setRawOpen] = useState(false);
+  const [traceOpen, setTraceOpen] = useState(false);
   // Seed the text fields once the detail arrives (and again if the server changed them).
   useEffect(() => {
     if (tx) {
@@ -272,6 +275,28 @@ function DrawerBody({
                   <Wand2 className="size-4" /> Create rule from this…
                 </Link>
               </Button>
+              <Button
+                variant="outline"
+                className="h-11 w-full justify-start gap-2 md:h-9"
+                onClick={() => setTraceOpen(true)}
+              >
+                <History className="size-4" /> Trace history
+              </Button>
+              <ResponsiveDialog
+                open={traceOpen}
+                onOpenChange={setTraceOpen}
+                title="Trace history"
+                description="Everything the app knows about this merchant."
+                className="sm:max-w-lg"
+              >
+                <TracePanel
+                  id={tx.id}
+                  onNavigate={(next) => {
+                    setTraceOpen(false);
+                    onNavigate(next);
+                  }}
+                />
+              </ResponsiveDialog>
             </section>
 
             {tx.source === "manual" && <ManualSection tx={tx} onClose={onClose} />}
