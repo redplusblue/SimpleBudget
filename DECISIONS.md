@@ -194,6 +194,16 @@
 - **The monthly budget refuses every AI call when reached, manual ones included**; `0` pauses all AI. A hard stop is simpler and safer than letting only background runs obey it.
 - **No vector database / classic RAG.** The data is structured and already in SQLite, and tools query it exactly. Tokens are saved with memory (facts the owner approved), saved conversations with rolling summaries, compact computed reports and a stable prompt prefix that providers can cache.
 
+### Rule suggestions (Phase 1)
+
+- **The AI proposes rules, never categories.** The owner's goal is for rules to cover every merchant so the AI is no longer needed; accepting a suggestion is the only thing that writes anything.
+- **The target rule is chosen by code.** The model returns a category, confidence and optional `contains` text; code decides extend-vs-new, so the model can't create odd rules. One `any`-match rule per category (`AI · <Category>`), without a direction condition, so a refund shares the category of the purchase.
+- **Each merchant is asked once**, ever (`pending`/`dismissed`/`no_match` rows block re-asking; "Ask again" deletes the row). An unparseable response stores nothing so those merchants are retried.
+- **`no_match` rows carry a placeholder action** (the first category/tag) only because the payload schema requires one; the UI labels them "no suggestion".
+- **Background runs are gated** by: AI on, schedule match, at least `min_new_merchants` waiting, budget left, no run in progress. The sync hook is fire-and-forget and lazily imported so a model call can never delay or fail a sync.
+- **Previews reuse one scan of the transactions** (in-memory, same numbers as a dry-run `applyRules`) so listing 200 suggestions doesn't scan the table 200 times.
+- Tag suggestions group merchants in code rather than SQL (about 180 days of rows), and share the per-run merchant cap with categories.
+
 ## Documentation and handoff
 
 `AGENTS.md` (fast path for agents), `CLAUDE.md` (points to it) and `docs/` (architecture, API table, development, operations, AI, Actual migration) were written so that a new agent can continue without the original conversation. Keep them current: when you change behaviour, update the doc that describes it in the same commit.

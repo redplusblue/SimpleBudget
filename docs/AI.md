@@ -57,6 +57,17 @@ Three layers (Settings → AI):
 ## Costs and the monthly budget
 Every model request from the app or `pnpm ai:categorize` writes one row to `ai_runs` (feature, model, trigger, tokens, cost, status; never prompt text). Cost is the provider's figure when it reports one (OpenRouter's `usage.cost`), otherwise estimated from the list's `inputPerMTok`/`outputPerMTok`, otherwise unknown. Costs are stored as integer micro-USD. The client asks for usage with `stream_options.include_usage`; a server that rejects that parameter is retried once without it. Set a **monthly budget** (USD) and every request is refused once the month's recorded cost reaches it; `0` pauses all AI, empty means no cap. Settings → AI shows this month's spend, per-feature totals and the last 20 runs.
 
+## Rule suggestions
+The recommended way to let AI categorize: it proposes **rules**, never categories, and you accept or dismiss each one on the **Rules** page. Over time rules cover every merchant and the AI has nothing left to do.
+- **What it looks at:** merchants with uncategorized transactions that no enabled rule covers and that were never suggested before (each merchant is asked once; "Ask again" under *Show dismissed* resets that).
+- **What is sent:** the cleaned payee name, one bank description, direction, typical amount, how many times it appears, and your category (and, if enabled, tag) names. Nothing else (see Privacy).
+- **The rule is decided by code, not the model.** The model picks a category, a confidence and optionally a shorter `contains` text. Code then extends an existing rule if one fits (an enabled "any" rule with only payee conditions and exactly that one category action, including your own) or creates `AI · <Category>`. New rules go last in priority, so yours always win. A `contains` pattern falls back to `payee is …` when it is under 4 characters or would hit transactions you categorized differently.
+- **Previews are computed on your server** over all history: "Matches 14 · fills 12", and a warning if some matches already have a different category. Conflicting suggestions are never bulk-accepted.
+- **Accepting** writes the rule and (by default) fills existing empty matches once; splits and anything you categorized are untouched. New transactions are handled by the normal rules at sync, for free.
+- **When it runs** (Settings → AI → Rule suggestions): only when you press *Find suggestions*, after each sync, or every N days. Background runs need AI on, at least N new merchants waiting (default 5), and monthly budget left; at most `max merchants per run` (default 100) are sent. A finished background run with results sends one "Rule suggestions ready" alert if alerts are on. The sync itself never waits for it or fails because of it.
+- **Tag rules** (off by default, same card): existing tags only, for merchants seen at least twice in the last 180 days; rules are named `AI tag · <Tag>`. They run after categories and share the per-run cap and budget.
+`pnpm ai:categorize` remains for one-off bulk work.
+
 ## Where the code is
 | File | Role |
 | --- | --- |
@@ -64,6 +75,7 @@ Every model request from the app or `pnpm ai:categorize` writes one row to `ai_r
 | `src/lib/llm/openai-compatible.ts` | the only client: SSE streaming, tool loop (≤ 6 rounds), error mapping, `max_tokens` fallback, tool-less retry |
 | `src/lib/llm/config.ts` | settings (`ai:*`), encrypted key, validation, `modelFor` / `isAllowedModel` |
 | `src/lib/llm/models.ts` | client-safe: `AiFeature`s, model-list schema and parser |
+| `src/lib/ai/` | rule suggestions: `rule-suggestions.ts` (the job), `tag-suggestions.ts`, `rule-target.ts` (extend-or-new, previews), `proposals.ts` (store, accept, accept-all), `rule-runner.ts` / `rule-settings.ts` (schedule) |
 | `src/lib/llm/runs.ts` | `trackRuns` (writes `ai_runs`), monthly spend, budget check, usage report |
 | `src/lib/llm/context.ts` | the allow-listed data the model may see |
 | `src/lib/llm/tools.ts` | the tools |

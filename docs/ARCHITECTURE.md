@@ -59,6 +59,7 @@ and pass it to the client component as `initialData`; the client takes over once
 | `budgets` | spending **targets** (per category or tag; recurring or one month); DB triggers/indexes enforce one subject and uniqueness |
 | `sync_runs` | history of syncs (status, requests used, errors); also the SimpleFIN daily request budget |
 | `insights_cache` | the saved AI monthly summary per month |
+| `ai_proposals` | things the AI suggests (rule suggestions now), with status `pending`/`accepted`/`dismissed`/`no_match`/`stale`, payload and preview JSON |
 | `ai_runs` | one row per model request: feature, model, trigger, tokens, cost (micro-USD), status |
 | `holdings` | positions in investment accounts (from SimpleFIN, replaced per sync) |
 | `goals` | savings goals tracked against one account |
