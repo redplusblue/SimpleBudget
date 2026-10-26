@@ -8,6 +8,9 @@ import { getSpendingReport } from "@/lib/finance/spending-report";
 import { queryTransactions } from "@/lib/finance/transactions-query";
 import { collectFacts, factsForLens, factsForModel } from "@/lib/ai/facts";
 import { LENS_IDS } from "@/lib/ai/lenses";
+import { findMerchantGroup } from "@/lib/ai/merchant-lookup";
+import { traceForModel } from "@/lib/ai/trace-model";
+import { traceTransaction } from "@/lib/finance/trace";
 import { listGoalProgress } from "@/lib/finance/goals";
 import { merchantHistory, monthlyTrend, periodReport, recurringSummary, yearSummary } from "./analysis";
 import type { LlmTool } from "./types";
@@ -96,6 +99,16 @@ export const LLM_TOOLS: LlmTool[] = [
     },
   },
   {
+    name: "get_merchant_trace",
+    description:
+      "Everything known about one merchant across all time, from the most recent matching transaction: totals, typical charge, cadence, price changes, refunds, duplicates, similar merchant names and how it is categorized.",
+    inputSchema: {
+      type: "object",
+      properties: { query: { type: "string", description: "Text to look for in the payee, e.g. 'netflix'" } },
+      required: ["query"],
+    },
+  },
+  {
     name: "get_goals",
     description: "Savings goals: name, target, progress, target date and whether the current pace will reach it.",
     inputSchema: { type: "object", properties: {} },
@@ -103,7 +116,8 @@ export const LLM_TOOLS: LlmTool[] = [
 ];
 
 /** The tools the original Ask box offers; the Assistant and the MCP server also get the newer ones. */
-export const ASK_TOOLS = LLM_TOOLS.filter((t) => t.name !== "get_facts" && t.name !== "get_goals");
+const NEWER_TOOLS = new Set(["get_facts", "get_goals", "get_merchant_trace"]);
+export const ASK_TOOLS = LLM_TOOLS.filter((t) => !NEWER_TOOLS.has(t.name));
 
 const monthInput = z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "month must look like 2026-09") });
 const periodInput = z.union([
@@ -174,6 +188,13 @@ export function createToolRunner(db: DbLike, now: number, timeZone: string, incl
       const { lens } = factsInput.parse(input ?? {});
       const facts = factsForLens(collectFacts(db, { now, timeZone, includeBalances }), lens ?? "all");
       return JSON.stringify({ facts: factsForModel(facts, includeBalances) });
+    }
+    if (name === "get_merchant_trace") {
+      const { query } = queryInput.parse(input);
+      const group = findMerchantGroup(db, query, timeZone);
+      if (!group) return JSON.stringify({ error: `No transactions match "${query}".` });
+      const trace = traceTransaction(db, group.latestId, now, timeZone);
+      return JSON.stringify(trace ? traceForModel(trace) : { error: "No history found." });
     }
     if (name === "get_goals") {
       return JSON.stringify({

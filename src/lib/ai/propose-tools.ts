@@ -1,14 +1,13 @@
 import "server-only";
 import { z } from "zod";
 import type { DbLike } from "@/db/open";
-import { normalizePayee, payeeKey } from "@/lib/finance/payee";
 import { listTargets } from "@/lib/finance/targets";
 import { MAX_TARGET_CENTS } from "@/lib/finance/targets-types";
-import { queryTransactions } from "@/lib/finance/transactions-query";
 import { listCategoryChoices } from "@/lib/llm/categorize";
 import type { LlmTool } from "@/lib/llm/types";
 import { listRules } from "@/lib/rules/store";
 import type { ProposeToolName } from "./lenses";
+import { findMerchantGroup } from "./merchant-lookup";
 import { memoryText } from "./memory";
 import type {
   AnyProposalView,
@@ -66,7 +65,8 @@ export const PROPOSE_TOOLS: Record<ProposeToolName, LlmTool> = {
 };
 
 export interface ProposeContext {
-  threadId: number;
+  /** The conversation, or null when the proposal comes from somewhere else (e.g. Explain on a trace). */
+  threadId: number | null;
   model: string;
   runId: () => number | null;
   now: number;
@@ -103,35 +103,20 @@ export function createProposeRunner(db: DbLike, ctx: ProposeContext, onProposal:
         const cat = findCategory(category);
         if (!cat) return `No category named "${category}". Use the exact name of one of the owner's categories.`;
 
-        const rows = queryTransactions(db, { q: payee }, { limit: 200, timeZone: ctx.timeZone }).rows;
-        const groups = new Map<string, { name: string; sample: string; amounts: number[]; income: boolean }>();
-        for (const r of rows) {
-          const display = normalizePayee(r.displayPayee) || r.displayPayee;
-          const direction = r.amountCents > 0 ? "income" : "expense";
-          const key = `${direction}:${payeeKey(display) || "unknown"}`;
-          const g = groups.get(key) ?? {
-            name: display,
-            sample: r.description,
-            amounts: [],
-            income: direction === "income",
-          };
-          g.amounts.push(Math.abs(r.amountCents));
-          groups.set(key, g);
-        }
-        const best = [...groups.entries()].sort((a, b) => b[1].amounts.length - a[1].amounts.length)[0];
+        const best = findMerchantGroup(db, payee, ctx.timeZone);
         if (!best) return `No transactions match "${payee}". Ask the owner for the merchant name as it appears.`;
-        const [key, g] = best;
-        const amounts = [...g.amounts].sort((a, b) => a - b);
+        const { key, name: merchantLabel, sample, income } = best;
+        const amounts = [...best.amounts].sort((a, b) => a - b);
 
         const action = categoryAction(cat.id, cat.name);
-        const { pattern, preview } = choosePattern(db, { payee: g.name }, action, contains, ctx.timeZone);
+        const { pattern, preview } = choosePattern(db, { payee: merchantLabel }, action, contains, ctx.timeZone);
         const draft: RuleProposalPayload = {
           merchant: {
             key,
-            name: g.name,
-            sample: g.sample,
-            direction: g.income ? "income" : "expense",
-            count: g.amounts.length,
+            name: merchantLabel,
+            sample,
+            direction: income ? "income" : "expense",
+            count: amounts.length,
             medianCents: amounts[Math.floor(amounts.length / 2)],
           },
           action,

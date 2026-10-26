@@ -62,6 +62,7 @@ describe("middleware", () => {
     "/api/settings/ai/rules",
     "/api/transactions/1/splits",
     "/api/transactions/1/trace",
+    "/api/transactions/1/trace/explain",
     "/api/accounts/x/balance",
     "/api/accounts/x/transactions",
     "/api/transactions/1/manual",

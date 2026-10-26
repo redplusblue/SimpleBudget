@@ -29,6 +29,7 @@ const ALL_READ = [
   "get_recurring",
   "get_year_summary",
   "get_merchant_history",
+  "get_merchant_trace",
 ];
 
 export const LENSES: Record<LensId, Lens> = {
@@ -59,6 +60,7 @@ export const LENSES: Record<LensId, Lens> = {
       "get_monthly_trend",
       "get_category_totals",
       "get_merchant_history",
+      "get_merchant_trace",
       "search_transactions",
     ],
     proposals: ["propose_target", "propose_memory"],
@@ -75,7 +77,7 @@ export const LENSES: Record<LensId, Lens> = {
     description: "Recurring charges and price rises.",
     instructions:
       "Focus on recurring charges: total monthly and yearly cost, price increases, duplicates, ones that look unused or cancelled. Name the merchant and the amount for each point.",
-    tools: ["get_facts", "get_recurring", "get_merchant_history", "search_transactions"],
+    tools: ["get_facts", "get_recurring", "get_merchant_history", "get_merchant_trace", "search_transactions"],
     proposals: ["propose_memory"],
     starters: [
       "What do my subscriptions cost per year?",

@@ -360,6 +360,33 @@ test("Assistant: insight cards, a saved chat that survives a reload, and a propo
   await expectNoHorizontalOverflow(page);
 });
 
+test("Explain with AI on a trace sends statistics, streams an answer, and fits a phone", async ({ page }) => {
+  await login(page);
+  const cfg = await page.request.put("/api/settings/ai", {
+    data: { enabled: true, baseUrl: `http://127.0.0.1:${MOCK_PORT}/v1`, model: "mock-model" },
+  });
+  expect(cfg.status()).toBe(200);
+  await page.goto("/transactions");
+  await page.getByRole("searchbox", { name: "Search transactions" }).fill("blue bottle");
+  await expect(page.getByTestId("txn-row").first()).toBeVisible();
+  await page.getByTestId("txn-row").first().click();
+  await page.getByRole("button", { name: "Trace history" }).click();
+  await expect(page.getByTestId("trace-panel")).toBeVisible();
+
+  requests = [];
+  await page.getByLabel("Ask about this charge").fill("Why so often?");
+  await page.getByRole("button", { name: "Explain with AI" }).click();
+  await expect(page.getByTestId("trace-explanation")).toContainText("You spent the most on");
+  const first = requests[0].body.messages.at(-1)?.content ?? "";
+  expect(String(first)).toContain("Statistics about this merchant");
+  expect(String(first)).toContain("Why so often?");
+  expect(JSON.stringify(requests.map((r) => r.body))).not.toContain("fake-checking");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId("trace-explanation")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
 test("the AI settings and panel fit a phone, and AI can be turned off again", async ({ page }) => {
   await login(page);
   await page.setViewportSize({ width: 390, height: 844 });
