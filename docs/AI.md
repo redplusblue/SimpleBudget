@@ -98,6 +98,14 @@ With AI on, **Explain with AI** (optional question, model picker) sends the *sta
 
 **Similar names are a heuristic:** one key extends the other (shorter at least 5 characters, e.g. `amazon` / `amazonmktplace`) or the first words match (4+ letters). `amzn` is not recognized as `amazon`; that is a known limit.
 
+## Automations
+Settings → Automations: **trigger → action → destination**. This is the only place AI runs without a button press, and only because you created the automation.
+- **Triggers:** a preset schedule (every day, week or month at a quarter-hour time; no free-form cron), a matching transaction after a sync (the same conditions as rules; pending rows only if you ask), a category going over its target (once per category per month), or an account balance falling below an amount (at most once a day).
+- **Actions:** a message with `{variables}` (`payee`, `amount`, `date`, `category`, `account` for transaction triggers, plus `month_spent`, `month_income`, `today`; anything else stays as literal text), a computed **fact** (free), an **AI insight** (cards from facts) or an **AI prompt** (a read-only conversation, saved as a thread titled "Automation: <name>" you can continue in the Assistant).
+- **Destinations:** Discord, ntfy or a webhook, stored encrypted and write-only. Payee and account names are left out of messages unless you tick "Include payee and account names".
+- **Cost:** AI actions use the model you pick (default: the "automations" model), are recorded in the usage card, and are **skipped with a reason** ("monthly AI budget reached", "AI is off") rather than failing. Message and fact actions cost nothing.
+- Automations never create proposals, so nothing they do changes your data.
+
 ## Where the code is
 | File | Role |
 | --- | --- |
@@ -106,6 +114,7 @@ With AI on, **Explain with AI** (optional question, model picker) sends the *sta
 | `src/lib/llm/config.ts` | settings (`ai:*`), encrypted key, validation, `modelFor` / `isAllowedModel` |
 | `src/lib/llm/models.ts` | client-safe: `AiFeature`s, model-list schema and parser |
 | `src/lib/finance/trace.ts`, `src/lib/ai/trace-model.ts`, `src/lib/ai/trace-explain.ts` | the computed trace, its model-safe form, Explain with AI |
+| `src/lib/automations/` | destinations, store and validation (`types.ts`), `run.ts` (build, send, record), `fire.ts` (after-sync, scheduled and manual triggers), `scheduler.ts` (cron timers) |
 | `src/lib/ai/` | assistant: `facts.ts`, `lenses.ts`, `memory.ts`, `propose-tools.ts`, `insight-cards.ts`, `assistant.ts` (chat engine); rule suggestions: `rule-suggestions.ts` (the job), `tag-suggestions.ts`, `rule-target.ts` (extend-or-new, previews), `proposals.ts` (store, accept, accept-all), `rule-runner.ts` / `rule-settings.ts` (schedule) |
 | `src/lib/llm/runs.ts` | `trackRuns` (writes `ai_runs`), monthly spend, budget check, usage report |
 | `src/lib/llm/context.ts` | the allow-listed data the model may see |

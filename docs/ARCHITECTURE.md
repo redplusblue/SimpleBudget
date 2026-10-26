@@ -62,6 +62,8 @@ and pass it to the client component as `initialData`; the client takes over once
 | `ai_threads`, `ai_messages` | saved assistant conversations (with a rolling summary) |
 | `ai_memories` | facts the owner wrote or approved, sent with every AI request |
 | `ai_insights` | generated insight cards (batch, cited fact ids, link, pinned/dismissed) |
+| `notify_destinations` | where automations send (ntfy / webhook / Discord); addresses and tokens encrypted |
+| `automations`, `automation_runs` | trigger + action + destination as validated JSON, and each automation's last 50 runs |
 | `ai_proposals` | things the AI suggests (rule suggestions now), with status `pending`/`accepted`/`dismissed`/`no_match`/`stale`, payload and preview JSON |
 | `ai_runs` | one row per model request: feature, model, trigger, tokens, cost (micro-USD), status |
 | `holdings` | positions in investment accounts (from SimpleFIN, replaced per sync) |
@@ -92,6 +94,8 @@ Fields: description, payee, amount, account, direction. First matching rule wins
 
 ### Insights (`src/lib/insights/`)
 `generators.ts` has nine deterministic generators over a shared per-request data loader (`data.ts`); `getInsights` isolates failures and sorts warn → good → info. They run on the server only and are the only thing the AI layer may quote (allow-list by id prefix in `llm/context.ts`).
+
+`automations/` holds destinations, the store, `run.ts` (build/send/record, never throws), `fire.ts` (after-sync, scheduled and manual triggers) and `scheduler.ts` (one cron timer per enabled schedule, rescheduled by the API routes and at boot).
 
 `finance/trace.ts` builds the per-merchant trace (one query on `merchant_key`, math in TypeScript) for the drawer's Trace history; `ai/trace-model.ts` is its model-safe form.
 

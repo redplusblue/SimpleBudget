@@ -221,6 +221,16 @@
 - **Similar merchants are heuristic** (key prefix with a 5-character minimum, or equal first words of 4+ letters). Known limit: abbreviations such as `amzn`.
 - **The `get_merchant_trace` tool stays out of the original Ask box** (its tool list is pinned by a test) but is available to the Assistant and MCP.
 
+### Automations (Phase 4)
+
+- **Preset schedules, not free cron.** Every day/week/month at a quarter-hour time. It removes the ways to schedule something every minute and to mis-type an expression.
+- **Destinations are separate from the legacy alert target.** The single alert destination in Settings → Alerts is untouched (no migration); automations use `notify_destinations` rows. Both can use Discord.
+- **Once per period.** Target automations fire once per category per month and balance automations once per account per day, through a dedupe key on the run row. A failed attempt doesn't block a retry (only `sent` runs count).
+- **Fire-and-forget after sync**, lazily imported like the rule-suggestion hook, so a slow destination or model can never delay or fail a sync.
+- **Automations never create proposals.** AI prompts run read-only (no propose tools); the answer can be continued in the saved thread.
+- **AI actions skip rather than fail** when AI is off or the budget is used up, and say why. Missed schedules are not caught up.
+- Messages say "a merchant" / "an account" unless the owner opts in per automation, mirroring the alerts' details option.
+
 ## Documentation and handoff
 
 `AGENTS.md` (fast path for agents), `CLAUDE.md` (points to it) and `docs/` (architecture, API table, development, operations, AI, Actual migration) were written so that a new agent can continue without the original conversation. Keep them current: when you change behaviour, update the doc that describes it in the same commit.

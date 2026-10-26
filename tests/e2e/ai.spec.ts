@@ -386,6 +386,8 @@ test("Explain with AI on a trace sends statistics, streams an answer, and fits a
   await page.getByRole("searchbox", { name: "Search transactions" }).fill("blue bottle");
   await expect(page.getByTestId("txn-row").first()).toBeVisible();
   await page.getByTestId("txn-row").first().click();
+  // A phone shows the trace in a bottom drawer (a different tree than the desktop dialog), so resize before opening.
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Trace history" }).click();
   await expect(page.getByTestId("trace-panel")).toBeVisible();
 
@@ -398,8 +400,6 @@ test("Explain with AI on a trace sends statistics, streams an answer, and fits a
   expect(String(first)).toContain("Why so often?");
   expect(JSON.stringify(requests.map((r) => r.body))).not.toContain("fake-checking");
 
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByTestId("trace-explanation")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 

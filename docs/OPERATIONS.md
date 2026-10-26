@@ -53,6 +53,12 @@ Take a backup first (Settings → About). Migrations only move forward; to roll 
 ## Monitoring and logs
 JSON logs on stdout (pino) with secrets redacted: `docker compose logs`. `LOG_LEVEL=debug` for more. Sync history: Settings → Sync. Database size and backups: Settings → About.
 
+## Automations and Discord
+- Scheduled automations run inside the server process, so they need it to be running at that time. **Missed runs are not caught up**: if the server was off at 09:00 on Sunday, that run simply doesn't happen. Times use the server's `TZ`.
+- Transaction, target and balance automations are checked after each sync. A slow or failing destination never delays or fails a sync; failures show in the automation's History as a plain reason.
+- **Discord:** in your server, Server Settings → Integrations → Webhooks → New Webhook → Copy URL, then paste it into Settings → Automations → Add destination (or Settings → Alerts). The address is the credential: anyone with it can post to that channel, so don't share it.
+- Each automation keeps its newest 50 runs.
+
 ## Troubleshooting
 | Symptom | Fix |
 | --- | --- |
