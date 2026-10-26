@@ -47,3 +47,7 @@ next-env.d.ts
 # playwright
 /test-results/
 /playwright-report/
+
+# GitHub Pages demo build output
+/demo-out
+/.demo-work

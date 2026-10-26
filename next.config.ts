@@ -32,6 +32,8 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Only the GitHub Pages demo sets this (the site lives under /<repo>/); normal deployments leave it unset.
+  basePath: process.env.NEXT_BASE_PATH || undefined,
   serverExternalPackages: ["better-sqlite3", "argon2", "pino"],
   poweredByHeader: false,
   env: { NEXT_PUBLIC_APP_VERSION: version },
