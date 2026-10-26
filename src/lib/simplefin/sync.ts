@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import type { Db, DbLike } from "@/db/open";
 import { accounts, balanceSnapshots, connections, holdings, syncRuns, transactions } from "@/db/schema";
 import { getAccessUrl } from "@/lib/connections";
+import { logger } from "@/lib/logger";
 import { localDateString } from "@/lib/finance/dates";
 import { guessAccountType } from "@/lib/finance/account-type";
 import { detectTransfers } from "@/lib/finance/transfers";
@@ -256,6 +257,11 @@ async function execute(db: Db, p: Plan, opts: SyncOptions): Promise<SyncResult> 
 
   // Optional: tell the owner about a failed sync or large new transactions (does nothing unless switched on).
   await notifyAfterSync(db, { status, errors, newIds: stats.newIds }, now, tz);
+
+  // Optional and slow (a model call): never delays or fails the sync.
+  void import("@/lib/ai/rule-runner")
+    .then((m) => m.maybeSuggestRules(db, "after_sync", now, tz))
+    .catch((err) => logger.warn({ err }, "rule suggestions failed"));
 
   return {
     ok: true,

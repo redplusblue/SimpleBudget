@@ -5,6 +5,7 @@ import { runMigrations } from "@/db/migrate";
 import { createDb, openSqlite, type Db } from "@/db/open";
 import {
   accounts,
+  aiRuns,
   balanceSnapshots,
   categories,
   connections,
@@ -653,5 +654,14 @@ describe("manual accounts", () => {
     await sync(db, bank, { mode: "incremental", trigger: "manual" });
     expect(acct(db, id)).toMatchObject({ isManual: true, balanceCents: 18_500, connectionId: null });
     expect(allTxns(db).find((x) => x.id === t)).toMatchObject({ source: "manual", amountCents: -1_500 });
+  });
+});
+
+describe("AI rule suggestions", () => {
+  it("a sync with AI off never calls a model or writes an ai_runs row", async () => {
+    const { db, bank } = setup();
+    await sync(db, bank);
+    await new Promise((r) => setTimeout(r, 50)); // the hook is fire-and-forget
+    expect(db.select().from(aiRuns).all()).toHaveLength(0);
   });
 });

@@ -6,7 +6,7 @@ export interface Notification {
   /** "default" | "high": high makes ntfy alert louder. */
   priority?: "default" | "high";
   /** The kind of event, for webhook receivers: sync_failed, large_transaction, test. */
-  event: "sync_failed" | "large_transaction" | "test";
+  event: "sync_failed" | "large_transaction" | "ai_suggestions" | "test";
 }
 
 export interface SendTarget {
@@ -36,7 +36,13 @@ export async function sendNotification(
     headers.title = headerSafe(n.title);
     headers.priority = n.priority === "high" ? "high" : "default";
     headers.tags =
-      n.event === "sync_failed" ? "warning" : n.event === "large_transaction" ? "moneybag" : "white_check_mark";
+      n.event === "sync_failed"
+        ? "warning"
+        : n.event === "large_transaction"
+          ? "moneybag"
+          : n.event === "ai_suggestions"
+            ? "bulb"
+            : "white_check_mark";
     headers["content-type"] = "text/plain; charset=utf-8";
     body = n.message;
   } else {

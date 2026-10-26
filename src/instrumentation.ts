@@ -7,5 +7,7 @@ export async function register() {
     startScheduler();
     const { startBackupScheduler } = await import("./lib/backup/scheduler");
     startBackupScheduler();
+    const { startRuleSuggestScheduler } = await import("./lib/ai/rule-runner");
+    startRuleSuggestScheduler();
   }
 }
