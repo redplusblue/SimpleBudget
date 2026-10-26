@@ -6,6 +6,7 @@ import { isDateString, localDateString } from "@/lib/finance/dates";
 import { normalizePayee } from "@/lib/finance/payee";
 import { getSpendingReport } from "@/lib/finance/spending-report";
 import { queryTransactions } from "@/lib/finance/transactions-query";
+import { merchantHistory, monthlyTrend, periodReport, recurringSummary, yearSummary } from "./analysis";
 import type { LlmTool } from "./types";
 
 export const MAX_SEARCH_ROWS = 50;
@@ -33,9 +34,68 @@ export const LLM_TOOLS: LlmTool[] = [
       required: ["query"],
     },
   },
+  {
+    name: "get_period_report",
+    description:
+      "Full report for a month or a custom date range (up to a year): spent, income, savings rate, categories compared with the previous period, top merchants, largest purchase, spending by weekday.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        month: { type: "string", description: "Month as YYYY-MM. Use this or from+to." },
+        from: { type: "string", description: "Earliest date, YYYY-MM-DD" },
+        to: { type: "string", description: "Latest date, YYYY-MM-DD" },
+      },
+    },
+  },
+  {
+    name: "get_monthly_trend",
+    description:
+      "Spending, income and net for each of the 12 months ending at the given month, plus the biggest categories month by month. Use for trends, seasonality and 'is it getting better' questions.",
+    inputSchema: {
+      type: "object",
+      properties: { end_month: { type: "string", description: "Last month of the window, YYYY-MM" } },
+      required: ["end_month"],
+    },
+  },
+  {
+    name: "get_recurring",
+    description:
+      "Detected subscriptions and regular bills: amount, cadence, next charge, monthly and yearly cost, price increases, and ones that look cancelled.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_year_summary",
+    description:
+      "One calendar year in review: totals, savings rate, by month, top categories and merchants, biggest risers and fallers versus the year before.",
+    inputSchema: {
+      type: "object",
+      properties: { year: { type: "integer", description: "Calendar year, e.g. 2026" } },
+      required: ["year"],
+    },
+  },
+  {
+    name: "get_merchant_history",
+    description:
+      "How much a merchant or kind of purchase has cost month by month (text match on the payee, e.g. 'uber', 'netflix').",
+    inputSchema: {
+      type: "object",
+      properties: { query: { type: "string", description: "Text to look for in the payee" } },
+      required: ["query"],
+    },
+  },
 ];
 
 const monthInput = z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "month must look like 2026-09") });
+const periodInput = z.union([
+  monthInput,
+  z.object({
+    from: z.string().refine(isDateString, "from must be YYYY-MM-DD"),
+    to: z.string().refine(isDateString, "to must be YYYY-MM-DD"),
+  }),
+]);
+const trendInput = z.object({ end_month: monthInput.shape.month });
+const yearInput = z.object({ year: z.number().int().min(1970).max(2200) });
+const queryInput = z.object({ query: z.string().trim().min(1).max(100) });
 const searchInput = z.object({
   query: z.string().trim().min(1).max(100),
   from: z.string().refine(isDateString, "from must be YYYY-MM-DD").optional(),
@@ -83,6 +143,12 @@ export function createToolRunner(db: DbLike, now: number, timeZone: string) {
         })),
       });
     }
+    const env = { now, timeZone };
+    if (name === "get_period_report") return JSON.stringify(periodReport(db, periodInput.parse(input), env));
+    if (name === "get_monthly_trend") return JSON.stringify(monthlyTrend(db, trendInput.parse(input).end_month, env));
+    if (name === "get_recurring") return JSON.stringify(recurringSummary(db, env));
+    if (name === "get_year_summary") return JSON.stringify(yearSummary(db, yearInput.parse(input).year, env));
+    if (name === "get_merchant_history") return JSON.stringify(merchantHistory(db, queryInput.parse(input).query, env));
     throw new Error(`Unknown tool: ${name}`);
   };
 }

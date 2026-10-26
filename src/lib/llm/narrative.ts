@@ -102,7 +102,7 @@ export async function answerQuestion(env: NarrativeEnv, question: string, histor
     includeBalances: env.includeBalances,
   });
   return env.llm.generate({
-    system: `${BASE_SYSTEM}\nYou can call get_category_totals for any month and search_transactions to look up individual purchases; use them when the summary below does not answer the question. Today is in ${month}.\n\nSummary of this month:\n${JSON.stringify(context, null, 2)}`,
+    system: `${BASE_SYSTEM}\nYou have read-only tools: get_period_report (any month or date range), get_monthly_trend (12 months), get_year_summary, get_recurring (subscriptions and bills), get_merchant_history, get_category_totals and search_transactions (individual purchases). Prefer them to guessing: call one whenever the summary below does not answer the question, and compare against earlier periods before calling something unusual. Today is in ${month}.\n\nSummary of this month:\n${JSON.stringify(context, null, 2)}`,
     history: history.slice(-MAX_HISTORY_TURNS),
     user: question.slice(0, MAX_QUESTION_CHARS),
     tools: LLM_TOOLS,

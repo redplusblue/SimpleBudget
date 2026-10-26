@@ -23,6 +23,14 @@ export function openSqlite(file: string): Database.Database {
   return sqlite;
 }
 
+/** Read-only connection for tools that must never change the budget (the MCP server, exports). */
+export function openSqliteReadOnly(file: string): Database.Database {
+  const sqlite = new Database(file, { readonly: true, fileMustExist: true });
+  sqlite.pragma("busy_timeout = 5000");
+  sqlite.function("payee_key", { deterministic: true }, (raw) => merchantKey(typeof raw === "string" ? raw : ""));
+  return sqlite;
+}
+
 export function createDb(sqlite: Database.Database) {
   return drizzle(sqlite, { schema });
 }

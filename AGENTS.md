@@ -17,6 +17,8 @@ pnpm dev                          # needs APP_SECRET (>= 32 chars) in the enviro
 pnpm lint && pnpm typecheck && pnpm test   # must pass before every commit (unit tests: Vitest)
 pnpm build && pnpm test:e2e       # Playwright; runs against a PRODUCTION build, so rebuild after changing src/
 pnpm db:seed-fake --setup         # demo database: ~10k fake transactions, password "password1234"
+pnpm ai:categorize                # manual, paid: LLM categorizes uncategorized payees (preview first; docs/AI.md)
+pnpm ai:export / pnpm mcp         # free: markdown snapshot for a chat LLM / read-only MCP server
 pnpm db:generate                  # drizzle-kit: new migration after editing src/db/schema.ts
 ```
 
@@ -46,7 +48,7 @@ Small, verbose commits (what changed *and why*), one concern each; end the messa
 | add a page | `src/app/(app)/<route>/page.tsx` + a component under `src/components/<feature>/`; add to `src/components/shell/nav.ts` |
 | add a table/column | edit `src/db/schema.ts`, `pnpm db:generate`, commit the SQL in `drizzle/` |
 | add an insight | `src/lib/insights/generators.ts` (+ allow-list in `src/lib/llm/context.ts` if the AI may see it) |
-| touch AI | `src/lib/llm/`, `docs/AI.md` |
+| touch AI | `src/lib/llm/` (tools in `tools.ts`, shared reports in `analysis.ts`), `src/lib/mcp/`, `docs/AI.md` |
 | import/export | `src/lib/import/`, `src/lib/export/` |
 
 ## Status and known gaps

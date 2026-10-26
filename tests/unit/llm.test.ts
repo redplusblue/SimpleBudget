@@ -98,7 +98,47 @@ describe("what the model is allowed to see", () => {
     const payload = wire(fake.requests[0], fake.toolOutputs);
     for (const secret of SECRETS) expect(payload).not.toContain(secret);
     expect(fake.toolOutputs[0]).toContain("BLUE BOTTLE COFFEE"); // payee, normalized, is allowed
-    expect(fake.requests[0].tools?.map((t) => t.name)).toEqual(["get_category_totals", "search_transactions"]);
+    expect(fake.requests[0].tools?.map((t) => t.name)).toEqual([
+      "get_category_totals",
+      "search_transactions",
+      "get_period_report",
+      "get_monthly_trend",
+      "get_recurring",
+      "get_year_summary",
+      "get_merchant_history",
+    ]);
+  });
+
+  it("the analysis tools answer from the data and leak nothing", () => {
+    const { db } = dataset();
+    const run = createToolRunner(db, NOW, TZ);
+    const period = JSON.parse(run("get_period_report", { month: "2026-10" }));
+    expect(period.spent).toBe("$250.00");
+    expect(period.categories[0]).toMatchObject({ name: "Dining", previous: "$100.00" });
+    const range = JSON.parse(run("get_period_report", { from: "2026-07-01", to: "2026-10-31" }));
+    expect(range.spent).toBe("$550.00");
+
+    const trend = JSON.parse(run("get_monthly_trend", { end_month: "2026-10" }));
+    expect(trend.months).toHaveLength(12);
+    expect(trend.months.at(-1)).toMatchObject({ month: "2026-10", spent: "$250.00" });
+
+    const year = JSON.parse(run("get_year_summary", { year: 2026 }));
+    expect(year.spent).toBe("$550.00");
+    expect(year.topCategories[0].name).toBe("Dining");
+
+    const history = JSON.parse(run("get_merchant_history", { query: "blue bottle" }));
+    expect(history.matchingTransactions).toBe(4);
+    expect(history.byMonth[0]).toMatchObject({ month: "2026-10", net: "-$250.00" });
+
+    const recurring = JSON.parse(run("get_recurring", {}));
+    expect(recurring.active.length + recurring.probablyCancelled.length).toBeGreaterThan(0);
+
+    const everything = JSON.stringify([period, range, trend, year, history, recurring]);
+    for (const secret of SECRETS) expect(everything).not.toContain(secret);
+
+    expect(() => run("get_period_report", { month: "October" })).toThrow();
+    expect(() => run("get_year_summary", { year: "soon" })).toThrow();
+    expect(() => run("get_merchant_history", { query: "" })).toThrow();
   });
 
   it("balances and account names are included only after opting in, and still never ids", () => {

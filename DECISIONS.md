@@ -180,6 +180,13 @@
 - **Compatibility shims:** retry with `max_completion_tokens` when a model rejects `max_tokens`; retry once without `tools` when the server rejects tool use (answers then use the summary only).
 - **Docs:** `docs/AI.md` has setup for OpenRouter and Open WebUI.
 
+## AI: richer tools, bulk categorizing, MCP
+
+- **Bulk categorizing is a manual CLI, not a button or a cron job**, so spending money is always a deliberate act. It groups by distinct payee (and direction) instead of by transaction, previews the plan and asks before sending, caps payees/calls per run, saves proposals to a file so applying never costs a second call, and writes only empty categories at or above a confidence bar (default `high`). Optional `--make-rules` turns each answer into a normal payee rule so the model is asked about a merchant once.
+- **One analysis module** (`src/lib/llm/analysis.ts`) feeds the in-app tools, the MCP server and the export, so they cannot disagree and cannot expose anything the allow-list in `context.ts` doesn't.
+- **MCP server is hand-rolled** (about 100 lines of JSON-RPC over stdio: initialize, ping, tools/list, tools/call) instead of adding `@modelcontextprotocol/sdk`, matching the no-vendor-SDK stance of the AI client. It opens SQLite read-only. If the protocol surface grows (resources, prompts, HTTP transport), switch to the SDK and record it here.
+- CLIs run through `tsx --conditions=react-server` so that `server-only` resolves to its empty module outside Next.
+
 ## Documentation and handoff
 
 `AGENTS.md` (fast path for agents), `CLAUDE.md` (points to it) and `docs/` (architecture, API table, development, operations, AI, Actual migration) were written so that a new agent can continue without the original conversation. Keep them current: when you change behaviour, update the doc that describes it in the same commit.

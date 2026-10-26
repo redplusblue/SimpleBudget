@@ -13,7 +13,10 @@
     "format": "prettier --write .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate-cli.ts",
-    "db:seed-fake": "tsx src/db/seed-fake.ts"
+    "db:seed-fake": "tsx src/db/seed-fake.ts",
+    "ai:categorize": "tsx --conditions=react-server src/db/ai-categorize.ts",
+    "ai:export": "tsx --conditions=react-server src/db/ai-export.ts",
+    "mcp": "tsx --conditions=react-server src/db/mcp-server.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.5.0",
