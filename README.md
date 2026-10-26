@@ -4,6 +4,8 @@ A self-hosted personal finance dashboard for one person. It pulls your balances 
 [SimpleFIN Bridge](https://beta-bridge.simplefin.org), stores everything in a single SQLite file on your own server, and
 gives you a fast, mobile-friendly place to see where your money goes.
 
+## [Live Demo](https://redplusblue.github.io/SimpleBudget)
+
 ![Dashboard on desktop](docs/screenshots/dashboard-1440.png)
 
 <p>
