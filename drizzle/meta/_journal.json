@@ -50,6 +50,13 @@
       "when": 1792903060601,
       "tag": "0006_holdings_goals",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793020591985,
+      "tag": "0007_silky_imperial_guard",
+      "breakpoints": true
     }
   ]
 }

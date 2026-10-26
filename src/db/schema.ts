@@ -239,3 +239,32 @@ export const goals = sqliteTable("goals", {
   color: text("color"),
   createdAt: integer("created_at").notNull().default(nowSeconds),
 });
+
+export const AI_TRIGGERS = ["manual", "after_sync", "interval", "automation"] as const;
+export type AiTrigger = (typeof AI_TRIGGERS)[number];
+
+/** One row per model request, for the usage report and the monthly budget. Never holds prompt text. */
+export const aiRuns = sqliteTable(
+  "ai_runs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** An `AiFeature`. */
+    feature: text("feature").notNull(),
+    model: text("model").notNull(),
+    trigger: text("trigger", { enum: AI_TRIGGERS }).notNull(),
+    status: text("status", { enum: ["running", "ok", "error"] }).notNull(),
+    /** Short, non-sensitive description of what the run was for, e.g. "12 merchants" or "thread 4". */
+    subject: text("subject"),
+    promptTokens: integer("prompt_tokens").notNull().default(0),
+    completionTokens: integer("completion_tokens").notNull().default(0),
+    cachedTokens: integer("cached_tokens").notNull().default(0),
+    /** Reported or estimated cost in micro-USD; null when neither is known. */
+    costMicros: integer("cost_micros"),
+    costEstimated: integer("cost_estimated", { mode: "boolean" }).notNull().default(false),
+    /** LlmError kind on failure. Never the provider's raw error text. */
+    errorKind: text("error_kind"),
+    startedAt: integer("started_at").notNull(),
+    finishedAt: integer("finished_at"),
+  },
+  (t) => [index("ai_runs_started_idx").on(t.startedAt)],
+);
