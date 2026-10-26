@@ -49,6 +49,54 @@ test.beforeAll(async () => {
       }
       const hasTools = Array.isArray(body.tools) && body.tools.length > 0;
       const sawToolResult = body.messages.some((m: { role: string }) => m.role === "tool");
+      const system = String(body.messages[0]?.content);
+      const lastUser = String([...body.messages].reverse().find((m) => m.role === "user")?.content ?? "");
+      if (system.includes("You write short insight cards")) {
+        // Cite a computed fact from the request (preferring ones that link somewhere).
+        const ids = [...lastUser.matchAll(/"id":"([^"]+)"/g)].map((m) => m[1]);
+        const id = ["rules-coverage", "uncategorized"].find((p) => ids.includes(p)) ?? ids[0];
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        res.end(
+          sse([
+            delta(
+              {
+                content: JSON.stringify([
+                  { facts: [id], severity: "info", title: "E2E insight card", body: "Written from a computed fact." },
+                ]),
+              },
+              "stop",
+            ),
+          ]),
+        );
+        return;
+      }
+      const toolNames =
+        (body.tools as Array<{ function: { name: string } }> | undefined)?.map((t) => t.function.name) ?? [];
+      if (toolNames.includes("propose_memory") && /remember/i.test(lastUser)) {
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        res.end(
+          sawToolResult
+            ? sse([delta({ content: "I've suggested remembering that." }, "stop")])
+            : sse([
+                delta(
+                  {
+                    tool_calls: [
+                      {
+                        index: 0,
+                        id: "call_mem",
+                        function: {
+                          name: "propose_memory",
+                          arguments: JSON.stringify({ text: "Rent is paid to Acme" }),
+                        },
+                      },
+                    ],
+                  },
+                  "tool_calls",
+                ),
+              ]),
+        );
+        return;
+      }
       res.writeHead(200, { "content-type": "text/event-stream" });
       if (hasTools && !sawToolResult) {
         res.end(
@@ -264,6 +312,52 @@ test("AI suggests rules; accept one with a changed category, dismiss another, an
   await page.getByRole("button", { name: "Show dismissed" }).click();
   await expect(page.getByRole("list", { name: "Dismissed suggestions" })).toContainText(/zzq alpha/i);
   await page.getByRole("button", { name: "Ask again" }).first().click();
+});
+
+test("Assistant: insight cards, a saved chat that survives a reload, and a proposed memory", async ({ page }) => {
+  await login(page);
+  const cfg = await page.request.put("/api/settings/ai", {
+    data: { enabled: true, baseUrl: `http://127.0.0.1:${MOCK_PORT}/v1`, model: "mock-model" },
+  });
+  expect(cfg.status()).toBe(200);
+
+  // Insights: cards come from computed facts and link to where to look.
+  await page.goto("/assistant");
+  await expect(page.getByText("Press Generate to get a few insights")).toBeVisible();
+  await page.getByRole("button", { name: "Generate" }).click();
+  const card = page.getByTestId("insight-card").first();
+  await expect(card).toContainText("E2E insight card");
+  await expect(card.getByRole("link", { name: "Open" })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoHorizontalOverflow(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  // Chat: the answer streams and the conversation is still there after a reload.
+  await page.getByRole("tab", { name: "Chat" }).click();
+  await expect(page).toHaveURL(/tab=chat/);
+  await page.getByLabel("Message the assistant").fill("Where does my money go?");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByTestId("assistant-chat")).toContainText("You spent the most on");
+  await expect(page).toHaveURL(/thread=\d+/);
+  await page.reload();
+  await expect(page.getByTestId("assistant-chat")).toContainText("Where does my money go?");
+  await expect(page.getByTestId("assistant-chat")).toContainText("You spent the most on");
+
+  // A proposal is only applied by the button, and then shows up in Memory.
+  await page.getByRole("button", { name: "New chat" }).first().click();
+  await page.getByLabel("Message the assistant").fill("Please remember that rent is paid to Acme");
+  await page.getByRole("button", { name: "Send" }).click();
+  const proposal = page.getByTestId("proposal-card");
+  await expect(proposal).toContainText("Rent is paid to Acme");
+  await proposal.getByRole("button", { name: "Apply" }).click();
+  await expect(proposal).toContainText("Applied");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoHorizontalOverflow(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole("tab", { name: "Memory" }).click();
+  await expect(page.getByTestId("memory").filter({ hasText: "Rent is paid to Acme" })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoHorizontalOverflow(page);
 });
 
 test("the AI settings and panel fit a phone, and AI can be turned off again", async ({ page }) => {

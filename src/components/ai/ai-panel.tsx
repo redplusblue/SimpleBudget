@@ -12,6 +12,7 @@ import type { CachedSummary } from "@/lib/llm/narrative";
 import { useAiConfig } from "./ai-config";
 import { MarkdownLite } from "./markdown-lite";
 import { ModelPicker } from "./model-picker";
+import { readNdjson } from "./read-ndjson";
 
 const SUMMARY_KEY = ["ai-summary"] as const;
 
@@ -45,27 +46,14 @@ function SummaryCard() {
         const body = await res.json().catch(() => null);
         throw new Error(body?.message ?? "Couldn't reach the summary service.");
       }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
       let text = "";
       let failed: string | null = null;
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let nl: number;
-        while ((nl = buffer.indexOf("\n")) >= 0) {
-          const line = buffer.slice(0, nl).trim();
-          buffer = buffer.slice(nl + 1);
-          if (!line) continue;
-          const event = JSON.parse(line) as { type: string; text?: string; message?: string };
-          if (event.type === "text") {
-            text += event.text ?? "";
-            setStreaming(text);
-          } else if (event.type === "error") failed = event.message ?? "The summary failed.";
-        }
-      }
+      await readNdjson<{ type: string; text?: string; message?: string }>(res, (event) => {
+        if (event.type === "text") {
+          text += event.text ?? "";
+          setStreaming(text);
+        } else if (event.type === "error") failed = event.message ?? "The summary failed.";
+      });
       if (failed) throw new Error(failed);
       await qc.invalidateQueries({ queryKey: SUMMARY_KEY });
       setStreaming(null);
@@ -192,6 +180,13 @@ function AskCard() {
             {busy ? <Loader2 className="animate-spin" /> : <Send />}
           </Button>
         </form>
+        <p className="text-xs text-muted-foreground">
+          For saved conversations, use the{" "}
+          <Link href="/assistant?tab=chat" className="text-link underline-offset-4 hover:underline">
+            Assistant
+          </Link>
+          .
+        </p>
       </CardContent>
     </Card>
   );

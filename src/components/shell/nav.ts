@@ -3,6 +3,7 @@ import {
   CreditCard,
   Flag,
   Lightbulb,
+  Sparkles,
   PieChart,
   ReceiptText,
   Settings,
@@ -24,6 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/accounts", label: "Accounts", icon: CreditCard },
   { href: "/transactions", label: "Transactions", icon: ReceiptText },
   { href: "/insights", label: "Insights", icon: Lightbulb },
+  { href: "/assistant", label: "Assistant", icon: Sparkles },
   { href: "/forecast", label: "Forecast", icon: TrendingUp },
   { href: "/goals", label: "Goals", icon: Flag },
   { href: "/year", label: "Year in review", icon: CalendarRange },
@@ -40,7 +42,7 @@ export const MOBILE_TABS: NavItem[] = [
 ];
 
 export const MORE_ITEMS: NavItem[] = NAV_ITEMS.filter((i) =>
-  ["/insights", "/forecast", "/goals", "/year", "/rules", "/settings"].includes(i.href),
+  ["/assistant", "/insights", "/forecast", "/goals", "/year", "/rules", "/settings"].includes(i.href),
 );
 
 export function isActive(pathname: string, href: string): boolean {
