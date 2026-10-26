@@ -52,21 +52,34 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
       for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
         let res: Response;
         try {
-          res = await fetch(endpoint(opts.baseUrl), {
-            method: "POST",
-            signal: req.signal,
-            headers: {
-              "content-type": "application/json",
-              ...(opts.apiKey ? { authorization: `Bearer ${opts.apiKey}` } : {}),
-            },
-            body: JSON.stringify({
-              model: opts.model,
-              messages,
-              max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
-              stream: true,
-              ...(tools?.length ? { tools } : {}),
-            }),
-          });
+          const send = (tokenField: "max_tokens" | "max_completion_tokens") =>
+            fetch(endpoint(opts.baseUrl), {
+              method: "POST",
+              signal: req.signal,
+              headers: {
+                "content-type": "application/json",
+                ...(opts.apiKey ? { authorization: `Bearer ${opts.apiKey}` } : {}),
+              },
+              body: JSON.stringify({
+                model: opts.model,
+                messages,
+                [tokenField]: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+                stream: true,
+                ...(tools?.length ? { tools } : {}),
+              }),
+            });
+          res = await send("max_tokens");
+          // Newer OpenAI models refuse `max_tokens` and ask for `max_completion_tokens`; most servers accept the first.
+          if (
+            res.status === 400 &&
+            /max_completion_tokens/.test(
+              await res
+                .clone()
+                .text()
+                .catch(() => ""),
+            )
+          )
+            res = await send("max_completion_tokens");
         } catch {
           throw new LlmError("Couldn't reach the AI provider.", "unavailable");
         }

@@ -48,6 +48,5 @@ export const MAX_TOOL_RESULT_CHARS = 20_000;
 export const clip = (s: string) =>
   s.length > MAX_TOOL_RESULT_CHARS ? `${s.slice(0, MAX_TOOL_RESULT_CHARS)}\n[truncated]` : s;
 
-export const PROVIDERS = ["anthropic", "openai-compatible"] as const;
-export type Provider = (typeof PROVIDERS)[number];
-export const DEFAULT_MODEL = "claude-sonnet-5-5";
+/** Prefilled in settings: OpenRouter. Any server that speaks the OpenAI chat-completions protocol works instead. */
+export const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";

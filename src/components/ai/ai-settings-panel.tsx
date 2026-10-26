@@ -9,14 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { ApiError, fetchJson, jsonBody } from "@/lib/fetch-json";
-import type { Provider } from "@/lib/llm/types";
 import { AI_CONFIG_KEY, useAiConfig } from "./ai-config";
-
-const DEFAULT_MODEL = "claude-sonnet-5-5";
 
 export function AiSettingsPanel() {
   const qc = useQueryClient();
@@ -24,8 +20,7 @@ export function AiSettingsPanel() {
   const cfg = query.data;
 
   const [enabled, setEnabled] = useState(false);
-  const [provider, setProvider] = useState<Provider>("anthropic");
-  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [includeBalances, setIncludeBalances] = useState(false);
   const [apiKey, setApiKey] = useState("");
@@ -34,7 +29,6 @@ export function AiSettingsPanel() {
   useEffect(() => {
     if (!cfg) return;
     setEnabled(cfg.enabled);
-    setProvider(cfg.provider);
     setModel(cfg.model);
     setBaseUrl(cfg.baseUrl);
     setIncludeBalances(cfg.includeBalances);
@@ -42,7 +36,7 @@ export function AiSettingsPanel() {
 
   const save = useMutation({
     mutationFn: (extra: { apiKey?: string | null } = {}) =>
-      fetchJson("/api/settings/ai", jsonBody("PUT", { enabled, provider, model, baseUrl, includeBalances, ...extra })),
+      fetchJson("/api/settings/ai", jsonBody("PUT", { enabled, model, baseUrl, includeBalances, ...extra })),
     onSuccess: () => {
       setApiKey("");
       setError(null);
@@ -112,36 +106,29 @@ export function AiSettingsPanel() {
           </div>
 
           <div className="space-y-2">
-            <Label>Provider</Label>
-            <Select value={provider} onValueChange={(v) => setProvider(v as Provider)}>
-              <SelectTrigger aria-label="Provider" className="h-11 w-full md:h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
-                <SelectItem value="openai-compatible">OpenAI-compatible (OpenAI, Ollama, LM Studio…)</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="ai-url">Server address</Label>
+            <Input
+              id="ai-url"
+              inputMode="url"
+              placeholder="https://openrouter.ai/api/v1"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              className="h-11 md:h-9"
+              autoCapitalize="none"
+              spellCheck={false}
+            />
+            <p className="text-xs text-muted-foreground">
+              Any server that speaks the OpenAI chat-completions API. OpenRouter:{" "}
+              <code>https://openrouter.ai/api/v1</code>. Open WebUI: <code>http://your-host:3000/api</code>. Ollama:{" "}
+              <code>http://localhost:11434/v1</code>.
+            </p>
           </div>
-
-          {provider === "openai-compatible" && (
-            <div className="space-y-2">
-              <Label htmlFor="ai-url">Base URL</Label>
-              <Input
-                id="ai-url"
-                inputMode="url"
-                placeholder="https://api.openai.com/v1 or http://localhost:11434/v1"
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                className="h-11 md:h-9"
-              />
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="ai-model">Model</Label>
             <Input
               id="ai-model"
+              placeholder="e.g. anthropic/claude-sonnet-4.5 or openai/gpt-4o-mini"
               value={model}
               onChange={(e) => setModel(e.target.value)}
               className="h-11 md:h-9"
@@ -152,10 +139,7 @@ export function AiSettingsPanel() {
 
           <div className="space-y-2">
             <Label htmlFor="ai-key">
-              API key{" "}
-              {provider === "openai-compatible" && (
-                <span className="font-normal text-muted-foreground">(optional for local servers)</span>
-              )}
+              API key <span className="font-normal text-muted-foreground">(not needed by some local servers)</span>
             </Label>
             <Input
               id="ai-key"

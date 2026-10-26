@@ -91,9 +91,7 @@ test("configure a provider, then get a streamed summary and an answer that used 
   await page.goto("/settings/ai");
   await expect(page.getByText("Only aggregated data is sent")).toBeVisible();
   await page.getByLabel("Turn on AI features").click();
-  await page.getByRole("combobox", { name: "Provider" }).click();
-  await page.getByRole("option", { name: /OpenAI-compatible/ }).click();
-  await page.getByLabel("Base URL").fill(`http://127.0.0.1:${MOCK_PORT}/v1`);
+  await page.getByLabel("Server address").fill(`http://127.0.0.1:${MOCK_PORT}/v1`);
   await page.getByLabel("Model").fill("mock-model");
   await page.getByLabel(/API key/).fill("sk-test-key-123456");
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -105,7 +103,7 @@ test("configure a provider, then get a streamed summary and an answer that used 
   expect(JSON.stringify(cfg)).not.toContain("sk-test-key");
   expect(cfg.config).toMatchObject({
     enabled: true,
-    provider: "openai-compatible",
+    model: "mock-model",
     hasKey: true,
     includeBalances: false,
   });
@@ -170,7 +168,7 @@ test("the AI settings and panel fit a phone, and AI can be turned off again", as
   await expect(page.getByTestId("ai-summary")).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.goto("/settings/ai");
-  await expect(page.getByLabel("Base URL")).toBeVisible();
+  await expect(page.getByLabel("Server address")).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.getByLabel("Turn on AI features").click();
   await page.getByRole("button", { name: "Save", exact: true }).click();

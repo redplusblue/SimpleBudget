@@ -138,40 +138,40 @@ describe("configuration", () => {
     const db = freshDb();
     expect(getAiConfig(db)).toMatchObject({
       enabled: false,
-      provider: "anthropic",
-      model: "claude-sonnet-5-5",
+      baseUrl: "https://openrouter.ai/api/v1",
+      model: "",
       hasKey: false,
     });
-    const cfg = updateAiConfig(db, { apiKey: "sk-ant-supersecretkey", enabled: true });
+    const cfg = updateAiConfig(db, { apiKey: "sk-or-supersecretkey", model: "openai/gpt-4o-mini", enabled: true });
     expect(cfg).toMatchObject({ enabled: true, hasKey: true });
     expect(JSON.stringify(cfg)).not.toContain("supersecret");
     const stored = db.select().from(settings).where(eq(settings.key, "ai:api_key")).get()!.value;
     expect(stored).not.toContain("supersecret");
-    expect(getApiKey(db)).toBe("sk-ant-supersecretkey");
-    updateAiConfig(db, { model: "claude-opus-5-5" });
-    expect(getApiKey(db)).toBe("sk-ant-supersecretkey");
+    expect(getApiKey(db)).toBe("sk-or-supersecretkey");
+    updateAiConfig(db, { model: "openai/gpt-4o" });
+    expect(getApiKey(db)).toBe("sk-or-supersecretkey");
     expect(updateAiConfig(db, { apiKey: null, enabled: false })).toMatchObject({ hasKey: false, enabled: false });
     expect(getApiKey(db)).toBeUndefined();
   });
 
   it("refuses to enable an unusable setup and validates fields", () => {
     const db = freshDb();
-    expect(() => updateAiConfig(db, { enabled: true })).toThrow(AiConfigError);
-    expect(() => updateAiConfig(db, { provider: "openai-compatible", enabled: true })).toThrow(/base URL/);
+    expect(() => updateAiConfig(db, { enabled: true })).toThrow(/model name/); // the address is prefilled, the model isn't
+    expect(() => updateAiConfig(db, { model: "m", baseUrl: "", enabled: true })).toThrow();
+    expect(() => updateAiConfig(db, { enabled: true, model: "m", baseUrl: "http://x" })).not.toThrow(AiConfigError);
     expect(() => updateAiConfig(db, { baseUrl: "ftp://example.com" })).toThrow();
     expect(() => updateAiConfig(db, { apiKey: "short" })).toThrow();
     expect(() => updateAiConfig(db, { surprise: 1 })).toThrow();
-    expect(
-      updateAiConfig(db, { provider: "openai-compatible", baseUrl: "http://localhost:11434/v1", enabled: true })
-        .enabled,
-    ).toBe(true);
+    expect(updateAiConfig(db, { baseUrl: "http://localhost:3000/api", model: "llama3", enabled: true }).enabled).toBe(
+      true,
+    );
   });
 
   it("getLlm is null unless AI is on and complete", () => {
     const db = freshDb();
     expect(getLlm(db)).toBeNull();
-    updateAiConfig(db, { apiKey: "sk-ant-supersecretkey" });
-    expect(getLlm(db)).toBeNull(); // key saved but not enabled
+    updateAiConfig(db, { apiKey: "sk-or-supersecretkey", model: "openai/gpt-4o-mini" });
+    expect(getLlm(db)).toBeNull(); // saved but not enabled
     updateAiConfig(db, { enabled: true });
     expect(getLlm(db)).not.toBeNull();
     updateAiConfig(db, { enabled: false });
@@ -319,5 +319,54 @@ describe("OpenAI-compatible client", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
     const client = createOpenAiCompatibleClient({ model: "m", baseUrl: "http://localhost:1/v1" });
     await expect(client.generate({ system: "s", user: "u" })).rejects.toMatchObject({ kind: "unavailable" });
+  });
+});
+
+describe("OpenAI-compatible token limit field", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("retries with max_completion_tokens when a server insists on it", async () => {
+    const ok = () =>
+      new Response(
+        new ReadableStream({
+          start: (c) => (
+            c.enqueue(
+              new TextEncoder().encode(
+                `data: ${JSON.stringify({ choices: [{ delta: { content: "hi" }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`,
+              ),
+            ),
+            c.close()
+          ),
+        }),
+        { status: 200 },
+      );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response('{"error":{"message":"Unsupported parameter: use max_completion_tokens instead"}}', {
+          status: 400,
+        }),
+      )
+      .mockResolvedValueOnce(ok());
+    vi.stubGlobal("fetch", fetchMock);
+    const text = await createOpenAiCompatibleClient({ model: "m", baseUrl: "https://openrouter.ai/api/v1" }).generate({
+      system: "s",
+      user: "u",
+      maxTokens: 123,
+    });
+    expect(text).toBe("hi");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ max_tokens: 123 });
+    const retry = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(retry).toMatchObject({ max_completion_tokens: 123 });
+    expect(retry.max_tokens).toBeUndefined();
+  });
+
+  it("does not retry other 400s", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{"error":"bad model"}', { status: 400 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      createOpenAiCompatibleClient({ model: "m", baseUrl: "http://x/v1" }).generate({ system: "s", user: "u" }),
+    ).rejects.toMatchObject({ kind: "unavailable" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

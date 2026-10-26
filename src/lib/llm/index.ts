@@ -1,6 +1,5 @@
 import "server-only";
 import type { DbLike } from "@/db/open";
-import { createAnthropicClient } from "./anthropic";
 import { getAiConfig, getApiKey } from "./config";
 import { createOpenAiCompatibleClient } from "./openai-compatible";
 import type { GenerateRequest, LlmClient } from "./types";
@@ -38,14 +37,7 @@ export function withDevLogging(client: LlmClient, log: (...a: unknown[]) => void
 export function getLlm(db: DbLike): LlmClient | null {
   const cfg = getAiConfig(db);
   if (!cfg.enabled) return null;
-  let client: LlmClient;
-  if (cfg.provider === "anthropic") {
-    const apiKey = getApiKey(db);
-    if (!apiKey) return null;
-    client = createAnthropicClient({ apiKey, model: cfg.model, baseUrl: cfg.baseUrl || undefined });
-  } else {
-    if (!cfg.baseUrl) return null;
-    client = createOpenAiCompatibleClient({ apiKey: getApiKey(db), model: cfg.model, baseUrl: cfg.baseUrl });
-  }
+  if (!cfg.baseUrl || !cfg.model) return null;
+  const client = createOpenAiCompatibleClient({ apiKey: getApiKey(db), model: cfg.model, baseUrl: cfg.baseUrl });
   return process.env.NODE_ENV === "development" ? withDevLogging(client) : client;
 }
