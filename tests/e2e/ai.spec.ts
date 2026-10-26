@@ -6,6 +6,7 @@ import { expectNoHorizontalOverflow, insertExpense } from "./helpers";
 // exactly what the app sends it.
 const MOCK_PORT = 3198;
 const DB = "./data/e2e-targets.db";
+const HOOK_PORT = 3195;
 test.describe.configure({ mode: "serial" });
 
 interface Recorded {
@@ -18,6 +19,8 @@ interface Recorded {
 }
 
 let server: Server;
+let hook: Server;
+let hookBodies: string[] = [];
 let requests: Recorded[] = [];
 let mode: "ok" | "fail" = "ok";
 
@@ -132,6 +135,19 @@ test.beforeAll(async () => {
   });
   await new Promise<void>((resolve) => server.listen(MOCK_PORT, "127.0.0.1", resolve));
 });
+test.beforeAll(async () => {
+  // Stands in for a webhook destination and records what an automation sends.
+  hook = createServer((req, res) => {
+    let raw = "";
+    req.on("data", (c) => (raw += c));
+    req.on("end", () => {
+      hookBodies.push(raw);
+      res.writeHead(200).end("ok");
+    });
+  });
+  await new Promise<void>((resolve) => hook.listen(HOOK_PORT, "127.0.0.1", resolve));
+});
+test.afterAll(() => new Promise<void>((resolve) => hook.close(() => resolve())));
 test.afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
 async function login(page: Page) {
@@ -385,6 +401,56 @@ test("Explain with AI on a trace sends statistics, streams an answer, and fits a
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("trace-explanation")).toBeVisible();
   await expectNoHorizontalOverflow(page);
+});
+
+test("an AI insight automation runs now, sends the card, and shows up in the usage card", async ({ page }) => {
+  await login(page);
+  const cfg = await page.request.put("/api/settings/ai", {
+    data: { enabled: true, baseUrl: `http://127.0.0.1:${MOCK_PORT}/v1`, model: "mock-model" },
+  });
+  expect(cfg.status()).toBe(200);
+  const dest = await page.request.post("/api/automations/destinations", {
+    data: { name: "AI hook", kind: "webhook", url: `http://127.0.0.1:${HOOK_PORT}/ai` },
+  });
+  const destinationId = (await dest.json()).destination.id as number;
+  const created = await page.request.post("/api/automations", {
+    data: {
+      name: "Weekly insight",
+      trigger: { type: "schedule", every: "week", hour: 9, minute: 0, weekday: 0 },
+      action: { type: "ai_insight", lens: "all", count: 1 },
+      destinationId,
+    },
+  });
+  expect(created.status()).toBe(201);
+  const id = (await created.json()).automation.id as number;
+
+  hookBodies = [];
+  const run = await page.request.post(`/api/automations/${id}/run`);
+  expect(await run.json()).toEqual({ status: "sent" });
+  expect(hookBodies).toHaveLength(1);
+  expect(hookBodies[0]).toContain("E2E insight card");
+  expect(hookBodies[0]).toContain("Written from a computed fact.");
+
+  // The run is recorded, and its AI call shows in the usage card.
+  const runs = (await (await page.request.get(`/api/automations/${id}/runs`)).json()).runs;
+  expect(runs[0]).toMatchObject({ status: "sent" });
+  await page.goto("/settings/ai");
+  await expect(page.getByRole("list", { name: "Recent AI requests" })).toContainText("Automations");
+
+  // With the budget used up the same automation is skipped, and says why.
+  await page.request.put("/api/settings/ai", { data: { monthlyBudgetMicros: 0 } });
+  hookBodies = [];
+  const skipped = await (await page.request.post(`/api/automations/${id}/run`)).json();
+  expect(skipped).toEqual({ status: "skipped", reason: "monthly AI budget reached" });
+  expect(hookBodies).toHaveLength(0);
+  await page.request.put("/api/settings/ai", { data: { monthlyBudgetMicros: null } });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/settings/automations");
+  await expect(page.getByTestId("automation").filter({ hasText: "Weekly insight" })).toContainText("AI insight");
+  await expectNoHorizontalOverflow(page);
+  await page.request.delete(`/api/automations/${id}`);
+  await page.request.delete(`/api/automations/destinations/${destinationId}`);
 });
 
 test("the AI settings and panel fit a phone, and AI can be turned off again", async ({ page }) => {
