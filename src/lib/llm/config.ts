@@ -15,6 +15,7 @@ const KEYS = {
   models: "ai:models",
   featureModels: "ai:feature_models",
   budget: "ai:monthly_budget_micros",
+  userName: "ai:user_name",
 } as const;
 
 /** What the settings page may see. The key itself never leaves the server. */
@@ -31,6 +32,8 @@ export interface AiConfig {
   featureModels: Partial<Record<AiFeature, string>>;
   /** Monthly cap in micro-USD, or null for none. */
   monthlyBudgetMicros: number | null;
+  /** First name used in insight cards; empty when not set. */
+  userName: string;
 }
 
 export class AiConfigError extends Error {
@@ -84,6 +87,7 @@ export function getAiConfig(db: DbLike): AiConfig {
     models: readModels(db, model),
     featureModels: readFeatureModels(db),
     monthlyBudgetMicros: readBudget(db),
+    userName: getSetting(db, KEYS.userName) ?? "",
     baseUrl: getSetting(db, KEYS.baseUrl) ?? DEFAULT_BASE_URL,
     includeBalances: getSetting(db, KEYS.includeBalances) === "1",
     hasKey: getSetting(db, KEYS.apiKey) !== undefined,
@@ -114,6 +118,8 @@ export const aiConfigPatchSchema = z
     models: modelListSchema.nullable(),
     featureModels: z.partialRecord(z.enum(AI_FEATURES), z.string().trim().min(1).max(120)).nullable(),
     monthlyBudgetMicros: z.number().int().min(0).max(10_000_000_000).nullable(),
+    /** Empty clears it. */
+    userName: z.string().trim().max(40),
   })
   .partial()
   .strict();
@@ -157,6 +163,10 @@ export function updateAiConfig(db: DbLike, input: unknown): AiConfig {
     else if (patch.featureModels !== undefined) setSetting(tx, KEYS.featureModels, JSON.stringify(patch.featureModels));
     if (patch.monthlyBudgetMicros === null) deleteSetting(tx, KEYS.budget);
     else if (patch.monthlyBudgetMicros !== undefined) setSetting(tx, KEYS.budget, String(patch.monthlyBudgetMicros));
+    if (patch.userName !== undefined) {
+      if (patch.userName === "") deleteSetting(tx, KEYS.userName);
+      else setSetting(tx, KEYS.userName, patch.userName);
+    }
     if (patch.apiKey === null) deleteSetting(tx, KEYS.apiKey);
     else if (patch.apiKey !== undefined) setSetting(tx, KEYS.apiKey, encrypt(patch.apiKey));
   });

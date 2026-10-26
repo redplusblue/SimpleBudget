@@ -40,6 +40,7 @@ export function AiSettingsPanel() {
   const [modelsText, setModelsText] = useState("");
   const [featureModels, setFeatureModels] = useState<Partial<Record<AiFeature, string>>>({});
   const [budget, setBudget] = useState("");
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
     if (!cfg) return;
@@ -49,6 +50,7 @@ export function AiSettingsPanel() {
     setIncludeBalances(cfg.includeBalances);
     setModelsText(explicitList(cfg));
     setFeatureModels(cfg.featureModels);
+    setUserName(cfg.userName);
     setBudget(cfg.monthlyBudgetMicros === null ? "" : String(cfg.monthlyBudgetMicros / 1_000_000));
   }, [cfg]);
 
@@ -74,6 +76,7 @@ export function AiSettingsPanel() {
           model,
           baseUrl,
           includeBalances,
+          userName,
           models: parsedModels.list,
           featureModels: Object.keys(featureModels).length > 0 ? featureModels : null,
           monthlyBudgetMicros: budgetNumber === null ? null : Math.round(budgetNumber * 1_000_000),
@@ -259,6 +262,21 @@ export function AiSettingsPanel() {
             <p className="text-xs text-muted-foreground">
               Every AI request is refused once this month&apos;s cost reaches it. Empty means no cap; <code>0</code>{" "}
               pauses all AI.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ai-name">Your first name (optional)</Label>
+            <Input
+              id="ai-name"
+              value={userName}
+              maxLength={40}
+              onChange={(e) => setUserName(e.target.value)}
+              className="h-11 md:h-9"
+              autoComplete="off"
+            />
+            <p className="text-xs text-muted-foreground">
+              Used to greet you in insight cards, e.g. &ldquo;Hey Sam, …&rdquo;.
             </p>
           </div>
 
