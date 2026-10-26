@@ -18,6 +18,7 @@ import type { Rule } from "@/lib/rules/types";
 import { type RuleProposalPayload } from "./proposal-types";
 import { hasProposalFor } from "./proposals";
 import { candidateRule, categoryAction, choosePattern, loadPreviewData } from "./rule-target";
+import { suggestTagRules, type TagSuggestResult } from "./tag-suggestions";
 
 // Asks the model which category each unknown merchant belongs to, then turns the answers into *proposals for rules*.
 // The model never touches a transaction: the owner accepts a rule, and the normal rules engine does the rest.
@@ -249,4 +250,26 @@ export async function suggestRules(
     db.transaction((tx) => tx.insert(aiProposals).values(rows).run());
   }
   return result;
+}
+
+export interface SuggestAllResult extends SuggestResult {
+  /** Present only when tag suggestions were switched on. */
+  tags?: TagSuggestResult | { skipped: "no_capacity" | "no_budget" };
+}
+
+/**
+ * Categories first; then, only when tag suggestions are on and the per-run merchant cap and the monthly budget
+ * still have room, tags. Both share `maxMerchants`.
+ */
+export async function suggestAll(
+  env: Parameters<typeof suggestRules>[0] & { budgetOk?: () => boolean },
+  opts: { maxMerchants: number; suggestTags: boolean; batchSize?: number; signal?: AbortSignal },
+): Promise<SuggestAllResult> {
+  const plan = planSuggestions(env.db, { maxMerchants: opts.maxMerchants, batchSize: opts.batchSize });
+  const result: SuggestAllResult = await suggestRules(env, opts);
+  if (!opts.suggestTags) return result;
+  const remaining = opts.maxMerchants - plan.toSend;
+  if (remaining <= 0) return { ...result, tags: { skipped: "no_capacity" } };
+  if (env.budgetOk && !env.budgetOk()) return { ...result, tags: { skipped: "no_budget" } };
+  return { ...result, tags: await suggestTagRules(env, { ...opts, maxMerchants: remaining }) };
 }

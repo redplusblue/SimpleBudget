@@ -3,12 +3,12 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { isRuleRunRunning, runExclusive } from "@/lib/ai/rule-runner";
 import { getRuleSuggestSettings } from "@/lib/ai/rule-settings";
-import { planSuggestions, suggestRules } from "@/lib/ai/rule-suggestions";
+import { planSuggestions, suggestAll } from "@/lib/ai/rule-suggestions";
 import { errorResponse, readJson } from "@/lib/api-errors";
 import { requireApiAuth } from "@/lib/auth";
 import { getEnv } from "@/lib/env";
 import { getLlmFor } from "@/lib/llm";
-import { assertWithinBudget, trackRuns } from "@/lib/llm/runs";
+import { assertWithinBudget, budgetState, trackRuns } from "@/lib/llm/runs";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     if (isRuleRunRunning())
       return NextResponse.json({ error: "busy", message: "A suggestion run is already in progress." }, { status: 409 });
 
-    const { maxMerchantsPerRun } = getRuleSuggestSettings(db);
+    const { maxMerchantsPerRun, suggestTags } = getRuleSuggestSettings(db);
     const result = await runExclusive(async () => {
       const plan = planSuggestions(db, { maxMerchants: maxMerchantsPerRun });
       const llm = trackRuns(db, picked.llm, {
@@ -39,9 +39,17 @@ export async function POST(request: Request) {
         subject: `${plan.toSend} merchants`,
         entry: picked.entry,
       });
-      return suggestRules(
-        { db, llm, model: picked.model, runId: llm.lastRunId, now, timeZone },
-        { maxMerchants: maxMerchantsPerRun },
+      return suggestAll(
+        {
+          db,
+          llm,
+          model: picked.model,
+          runId: llm.lastRunId,
+          now,
+          timeZone,
+          budgetOk: () => !budgetState(db, now, timeZone).over,
+        },
+        { maxMerchants: maxMerchantsPerRun, suggestTags },
       );
     });
     if (result === null)

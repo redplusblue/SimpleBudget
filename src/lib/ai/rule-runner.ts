@@ -8,7 +8,7 @@ import { getLlmFor, type FeatureLlm } from "@/lib/llm";
 import { budgetState, trackRuns } from "@/lib/llm/runs";
 import { getNotifyConfig, getNotifyTarget } from "@/lib/notify/config";
 import { sendNotification } from "@/lib/notify/send";
-import { planSuggestions, suggestRules, type SuggestResult } from "./rule-suggestions";
+import { planSuggestions, suggestAll, type SuggestAllResult } from "./rule-suggestions";
 import { getRuleSuggestSettings, setRuleSuggestLastRun } from "./rule-settings";
 
 const g = globalThis as unknown as { __sbRuleSuggestRunning?: boolean; __sbRuleSuggestCron?: ScheduledTask };
@@ -59,7 +59,7 @@ export async function maybeSuggestRules(
   now: number,
   timeZone: string,
   deps: RunnerDeps = {},
-): Promise<{ ran: boolean; reason: RunReason; result?: SuggestResult }> {
+): Promise<{ ran: boolean; reason: RunReason; result?: SuggestAllResult }> {
   try {
     const picked = (deps.getLlm ?? ((d) => getLlmFor(d, "rules")))(db);
     if (!picked) return { ran: false, reason: "disabled" };
@@ -81,12 +81,24 @@ export async function maybeSuggestRules(
         subject: `${plan.toSend} merchants`,
         entry: picked.entry,
       });
-      const result = await suggestRules(
-        { db, llm, model: picked.model, runId: llm.lastRunId, now, timeZone },
-        { maxMerchants: s.maxMerchantsPerRun },
+      const result = await suggestAll(
+        {
+          db,
+          llm,
+          model: picked.model,
+          runId: llm.lastRunId,
+          now,
+          timeZone,
+          budgetOk: () => !budgetState(db, now, timeZone).over,
+        },
+        { maxMerchants: s.maxMerchantsPerRun, suggestTags: s.suggestTags },
       );
       setRuleSuggestLastRun(db, now);
-      await notifyReady(db, result.created, deps.fetchImpl);
+      await notifyReady(
+        db,
+        result.created + (result.tags && "created" in result.tags ? result.tags.created : 0),
+        deps.fetchImpl,
+      );
       return result;
     });
     return out === null ? { ran: false, reason: "busy" } : { ran: true, reason: "ok", result: out };
