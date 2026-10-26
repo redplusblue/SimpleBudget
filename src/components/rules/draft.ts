@@ -1,5 +1,12 @@
 import { centsToDecimalString, parseCents } from "@/lib/finance/cents";
-import { OPS_FOR_FIELD, ruleInputSchema, type ConditionField, type Rule, type RuleInput } from "@/lib/rules/types";
+import {
+  OPS_FOR_FIELD,
+  ruleInputSchema,
+  type Condition,
+  type ConditionField,
+  type Rule,
+  type RuleInput,
+} from "@/lib/rules/types";
 
 /** The rule builder works with strings (what the user typed); these helpers convert to and from the stored shape. */
 
@@ -54,9 +61,12 @@ const dollarsToCents = (s: string): number => Math.abs(parseCents(s.trim().repla
 
 export type DraftResult = { ok: true; input: RuleInput } | { ok: false; error: string };
 
-export function draftToInput(draft: RuleDraft): DraftResult {
+/** The typed-in conditions as the stored shape (not yet validated), or what's wrong with them. */
+export function conditionsFromDrafts(
+  drafts: ConditionDraft[],
+): { ok: true; conditions: unknown[] } | { ok: false; error: string } {
   const conditions: unknown[] = [];
-  for (const c of draft.conditions) {
+  for (const c of drafts) {
     try {
       if (c.field === "amount") {
         if (c.op === "between") {
@@ -77,6 +87,13 @@ export function draftToInput(draft: RuleDraft): DraftResult {
       return { ok: false, error: "Amounts should look like 25.00" };
     }
   }
+  return { ok: true, conditions };
+}
+
+export function draftToInput(draft: RuleDraft): DraftResult {
+  const built = conditionsFromDrafts(draft.conditions);
+  if (!built.ok) return built;
+  const conditions = built.conditions;
 
   const actions: Record<string, unknown> = {};
   if (draft.categoryId !== null) actions.categoryId = draft.categoryId;
@@ -96,20 +113,25 @@ export function draftToInput(draft: RuleDraft): DraftResult {
   return { ok: true, input: parsed.data };
 }
 
+/** Stored conditions as typed-in drafts, for editing. */
+export function draftsFromConditions(conditions: Condition[]): ConditionDraft[] {
+  return conditions.map((c) => {
+    const base = { key: nextKey(), field: c.field, op: c.op, text: "", min: "", max: "" } as ConditionDraft;
+    if (c.field === "amount") {
+      if (c.op === "between")
+        return { ...base, min: centsToDecimalString(c.value.min), max: centsToDecimalString(c.value.max) };
+      return { ...base, text: centsToDecimalString(c.value) };
+    }
+    return { ...base, text: String(c.value) };
+  });
+}
+
 export function ruleToDraft(rule: Rule): RuleDraft {
   return {
     name: rule.name,
     match: rule.match,
     enabled: rule.enabled,
-    conditions: rule.conditions.map((c) => {
-      const base = { key: nextKey(), field: c.field, op: c.op, text: "", min: "", max: "" } as ConditionDraft;
-      if (c.field === "amount") {
-        if (c.op === "between")
-          return { ...base, min: centsToDecimalString(c.value.min), max: centsToDecimalString(c.value.max) };
-        return { ...base, text: centsToDecimalString(c.value) };
-      }
-      return { ...base, text: String(c.value) };
-    }),
+    conditions: draftsFromConditions(rule.conditions),
     categoryId: rule.actions.categoryId ?? null,
     tagIds: rule.actions.addTagIds ?? [],
     payeeOverride: rule.actions.payeeOverride ?? "",

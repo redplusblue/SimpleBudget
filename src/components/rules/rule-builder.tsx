@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { Loader2, Plus, Trash2, X } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
@@ -14,12 +14,11 @@ import { Switch } from "@/components/ui/switch";
 import { useInvalidateTaxonomy } from "@/hooks/use-invalidate";
 import { useAccountsOverview, useCategories, useTags } from "@/hooks/use-lookups";
 import { fetchJson, jsonBody } from "@/lib/fetch-json";
-import { FIELD_LABELS, MAX_CONDITIONS, OPS_FOR_FIELD, OP_LABELS, type ConditionField } from "@/lib/rules/types";
-import { changeField, draftToInput, newCondition, type ConditionDraft, type RuleDraft } from "./draft";
+import { ConditionEditor } from "./condition-editor";
+import { draftToInput, type RuleDraft } from "./draft";
 import { RulePreview } from "./rule-preview";
 
 const NO_CATEGORY = "none";
-const FIELDS = Object.keys(FIELD_LABELS) as ConditionField[];
 
 export interface BuilderTarget {
   /** Set when editing an existing rule. */
@@ -53,8 +52,6 @@ function BuilderForm({ target, onClose }: { target: BuilderTarget; onClose: () =
 
   const result = useMemo(() => draftToInput(draft), [draft]);
   const set = (patch: Partial<RuleDraft>) => setDraft((d) => ({ ...d, ...patch }));
-  const setCondition = (key: string, fn: (c: ConditionDraft) => ConditionDraft) =>
-    setDraft((d) => ({ ...d, conditions: d.conditions.map((c) => (c.key === key ? fn(c) : c)) }));
 
   const save = useMutation({
     mutationFn: () => {
@@ -95,86 +92,12 @@ function BuilderForm({ target, onClose }: { target: BuilderTarget; onClose: () =
         />
       </div>
 
-      <section aria-label="Conditions" className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
-          If
-          <Select value={draft.match} onValueChange={(v) => set({ match: v as "all" | "any" })}>
-            <SelectTrigger aria-label="Match mode" className="h-9 w-auto min-w-24 gap-2">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">all</SelectItem>
-              <SelectItem value="any">any</SelectItem>
-            </SelectContent>
-          </Select>
-          of these match:
-        </div>
-
-        <ul className="space-y-2">
-          {draft.conditions.map((c, i) => (
-            <li
-              key={c.key}
-              data-testid="condition-row"
-              className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 rounded-xl border border-border p-2 md:grid-cols-[130px_150px_minmax(0,1fr)_auto]"
-            >
-              <Select
-                value={c.field}
-                onValueChange={(v) => setCondition(c.key, (x) => changeField(x, v as ConditionField))}
-              >
-                <SelectTrigger aria-label={`Condition ${i + 1} field`} className="h-11 w-full md:h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FIELDS.map((f) => (
-                    <SelectItem key={f} value={f}>
-                      {FIELD_LABELS[f]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={c.op}
-                onValueChange={(v) => setCondition(c.key, (x) => ({ ...x, op: v }))}
-                disabled={OPS_FOR_FIELD[c.field].length === 1}
-              >
-                <SelectTrigger aria-label={`Condition ${i + 1} operator`} className="h-11 w-full md:h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {OPS_FOR_FIELD[c.field].map((op) => (
-                    <SelectItem key={op} value={op}>
-                      {OP_LABELS[op]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="order-3 size-11 md:order-4 md:size-9"
-                aria-label={`Remove condition ${i + 1}`}
-                disabled={draft.conditions.length === 1}
-                onClick={() => set({ conditions: draft.conditions.filter((x) => x.key !== c.key) })}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-              <div className="order-4 col-span-3 md:order-3 md:col-span-1">
-                <ValueInput c={c} index={i} accounts={accounts} onChange={(fn) => setCondition(c.key, fn)} />
-              </div>
-            </li>
-          ))}
-        </ul>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={draft.conditions.length >= MAX_CONDITIONS}
-          onClick={() => set({ conditions: [...draft.conditions, newCondition()] })}
-        >
-          <Plus /> Add condition
-        </Button>
-      </section>
+      <ConditionEditor
+        match={draft.match}
+        conditions={draft.conditions}
+        accounts={accounts}
+        onChange={(patch) => set(patch)}
+      />
 
       <section aria-label="Actions" className="space-y-3">
         <p className="text-sm font-medium">Then:</p>
@@ -330,91 +253,5 @@ function SwitchRow({
       </Label>
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
     </div>
-  );
-}
-
-function ValueInput({
-  c,
-  index,
-  accounts,
-  onChange,
-}: {
-  c: ConditionDraft;
-  index: number;
-  accounts: Array<{ id: string; label: string }>;
-  onChange: (fn: (c: ConditionDraft) => ConditionDraft) => void;
-}) {
-  const label = `Condition ${index + 1} value`;
-  if (c.field === "direction") {
-    return (
-      <Select value={c.text || "expense"} onValueChange={(v) => onChange((x) => ({ ...x, text: v }))}>
-        <SelectTrigger aria-label={label} className="h-11 w-full md:h-9">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="expense">Money goes out (expense)</SelectItem>
-          <SelectItem value="income">Money comes in (income)</SelectItem>
-        </SelectContent>
-      </Select>
-    );
-  }
-  if (c.field === "account") {
-    return (
-      <Select value={c.text} onValueChange={(v) => onChange((x) => ({ ...x, text: v }))}>
-        <SelectTrigger aria-label={label} className="h-11 w-full md:h-9">
-          <SelectValue placeholder="Choose an account" />
-        </SelectTrigger>
-        <SelectContent>
-          {accounts.map((a) => (
-            <SelectItem key={a.id} value={a.id}>
-              {a.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    );
-  }
-  if (c.field === "amount" && c.op === "between") {
-    return (
-      <div className="flex items-center gap-2">
-        <Input
-          aria-label={`${label}: minimum`}
-          inputMode="decimal"
-          placeholder="Min $"
-          value={c.min}
-          onChange={(e) => onChange((x) => ({ ...x, min: e.target.value }))}
-          className="h-11 md:h-9"
-        />
-        <span className="text-muted-foreground">–</span>
-        <Input
-          aria-label={`${label}: maximum`}
-          inputMode="decimal"
-          placeholder="Max $"
-          value={c.max}
-          onChange={(e) => onChange((x) => ({ ...x, max: e.target.value }))}
-          className="h-11 md:h-9"
-        />
-      </div>
-    );
-  }
-  const isAmount = c.field === "amount";
-  return (
-    <Input
-      aria-label={label}
-      inputMode={isAmount ? "decimal" : "text"}
-      placeholder={
-        isAmount
-          ? "Amount in $"
-          : c.op === "regex"
-            ? "Regular expression"
-            : c.field === "payee"
-              ? "e.g. trader joe"
-              : "Text to look for"
-      }
-      value={c.text}
-      maxLength={300}
-      onChange={(e) => onChange((x) => ({ ...x, text: e.target.value }))}
-      className="h-11 md:h-9"
-    />
   );
 }
