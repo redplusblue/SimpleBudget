@@ -57,6 +57,13 @@
       "when": 1793020591985,
       "tag": "0007_silky_imperial_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793022759492,
+      "tag": "0008_crazy_firebird",
+      "breakpoints": true
     }
   ]
 }

@@ -268,3 +268,33 @@ export const aiRuns = sqliteTable(
   },
   (t) => [index("ai_runs_started_idx").on(t.startedAt)],
 );
+
+export const PROPOSAL_KINDS = ["rule", "memory", "target"] as const;
+export const PROPOSAL_STATUSES = ["pending", "accepted", "dismissed", "no_match", "stale"] as const;
+export const PROPOSAL_SOURCES = ["rules_job", "assistant"] as const;
+
+/** Things the AI wants to change, waiting for the owner to apply or dismiss them. */
+export const aiProposals = sqliteTable(
+  "ai_proposals",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    kind: text("kind", { enum: PROPOSAL_KINDS }).notNull(),
+    status: text("status", { enum: PROPOSAL_STATUSES }).notNull().default("pending"),
+    source: text("source", { enum: PROPOSAL_SOURCES }).notNull(),
+    /** Dedupe key: "category:<direction>:<payeeKey>" or "tag:<merchantKey>:<tagId>" for rules. */
+    subjectKey: text("subject_key"),
+    payloadJson: text("payload_json").notNull(),
+    /** Dry-run counts at creation time (recomputed when listed). */
+    previewJson: text("preview_json"),
+    confidence: text("confidence", { enum: ["low", "medium", "high"] }),
+    model: text("model"),
+    aiRunId: integer("ai_run_id").references(() => aiRuns.id, { onDelete: "set null" }),
+    /** The conversation that produced it (a plain integer; the threads table arrives with the assistant). */
+    threadId: integer("thread_id"),
+    /** The rule created or extended on accept. */
+    ruleId: integer("rule_id").references(() => rules.id, { onDelete: "set null" }),
+    createdAt: integer("created_at").notNull(),
+    resolvedAt: integer("resolved_at"),
+  },
+  (t) => [index("ai_proposals_status_idx").on(t.kind, t.status), index("ai_proposals_subject_idx").on(t.subjectKey)],
+);
