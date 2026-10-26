@@ -121,8 +121,8 @@
 
 ## Phase 9b: optional LLM features
 
-- **New dependency:** `@anthropic-ai/sdk`, as the plan specifies. OpenAI-compatible servers use plain `fetch`.
-- **Default model:** `claude-sonnet-5-5` (the plan's default; editable in Settings -> AI). No `thinking`, `temperature` or forced `tool_choice` is sent, so any current Claude model works.
+- **(Superseded, see "AI: OpenAI-compatible only" below.)** Originally `@anthropic-ai/sdk` for Anthropic plus `fetch` for OpenAI-compatible servers.
+- **(Superseded.)** Originally defaulted to `claude-sonnet-5-5`.
 - **What leaves the server:** only what `src/lib/llm/context.ts` assembles (category, merchant and month-over-month totals, plus an allow-list of insights). Insights are filtered by id prefix, so a new generator is excluded until someone adds it to the list. Account names/balances (and the low-balance/utilization insights) need the opt-in checkbox. The two tools return normalized payee, date, amount and category for at most 50 rows. Tests assert that neither a summary nor a tool-using question contains an account id, the access URL, a memo or a note.
 - **Key storage:** AES-256-GCM via the same secret box as the SimpleFIN access URL; write-only through the API (responses only say `hasKey`).
 - **Base URL:** any http(s) URL is accepted, because local servers (Ollama, LM Studio) are a main use case and only the signed-in owner can set it.
@@ -172,3 +172,14 @@
 - **Year in review** is built on the spending report for a custom range, so its numbers match the Spending page; the "vs the year before" comparison uses the preceding period of equal length.
 - **Multi-currency is display-level.** Everything is shown in US dollars; you set what one unit of each other currency is worth, and net worth (total, chart and assets/liabilities) and account-group totals convert at that rate. Rates never update themselves; without one a currency counts 1 to 1 and the dashboard says so. Spending analytics (categories, merchants, targets) still add up raw amounts, so they assume your accounts share a currency. Making those convert too would mean changing every aggregate query; left out on purpose.
 - **Alerts** are off by default and generic by default (the message says an amount, not who it was with) because a public ntfy topic is readable by anyone who knows its name. Only rows inserted by that sync can trigger one, at most five per sync, and a failure is announced at most every six hours. The destination and token are stored encrypted and never returned by the API.
+
+## AI: OpenAI-compatible only (supersedes parts of Phase 9b)
+
+- **One protocol.** The owner runs OpenRouter or an Open WebUI instance, so the Anthropic SDK and the provider switch were removed (`@anthropic-ai/sdk` is no longer a dependency). Everything goes through `src/lib/llm/openai-compatible.ts` (plain `fetch`, streaming, tool loop). Claude models are still usable *through* OpenRouter (`anthropic/claude-...`).
+- **Settings** are now: server address (default `https://openrouter.ai/api/v1`), model (required, no default, because model ids differ per server), optional API key. Turning AI on requires an address and a model. The old `ai:provider` setting is ignored.
+- **Compatibility shims:** retry with `max_completion_tokens` when a model rejects `max_tokens`; retry once without `tools` when the server rejects tool use (answers then use the summary only).
+- **Docs:** `docs/AI.md` has setup for OpenRouter and Open WebUI.
+
+## Documentation and handoff
+
+`AGENTS.md` (fast path for agents), `CLAUDE.md` (points to it) and `docs/` (architecture, API table, development, operations, AI, Actual migration) were written so that a new agent can continue without the original conversation. Keep them current: when you change behaviour, update the doc that describes it in the same commit.

@@ -19,10 +19,10 @@ gives you a fast, mobile-friendly place to see where your money goes.
 - **Categories and rules.** Rules categorize new imports automatically (by description, payee, amount, account or direction) and can be applied to history with a preview.
 - **Targets.** Optional monthly limits per category or tag, with progress bars on the dashboard and Spending page.
 - **Insights.** Plain-language findings worked out on your own server: unusual spending, price increases, duplicate charges, low balances, pace for the month and more.
-- **Optional AI.** Off by default. With your own key it adds a monthly summary and an "Ask about your spending" box. Only aggregated data is sent, never account numbers or your bank connection (see [Privacy](#privacy)).
+- **Optional AI.** Off by default. Point it at any OpenAI-compatible server (OpenRouter, Open WebUI, Ollama, …) for a monthly summary and an "Ask about your spending" box. Only aggregated data is sent, never account numbers or your bank connection (see [Privacy](#privacy) and [`docs/AI.md`](docs/AI.md)).
 - **Looking ahead.** A 30-day cash **forecast** from your recurring bills and paychecks, savings **goals** with progress rings and an on-track check, a **year in review**, and **holdings** for investment accounts when your institution reports them.
 - **Manual accounts.** Track cash or anything not connected to a bank. Reconcile any account against a statement balance.
-- **Import and export.** Import Actual Budget's CSV export (or any CSV with column mapping), export all transactions to CSV, and download a SQLite backup.
+- **Import and export.** Import Actual Budget's CSV export (step-by-step guide: [`docs/MIGRATING-FROM-ACTUAL.md`](docs/MIGRATING-FROM-ACTUAL.md)) or any CSV with column mapping, export all transactions to CSV, and download a SQLite backup.
 - **Alerts and currencies.** Optional push messages (ntfy or a webhook) for failed syncs and large transactions, and static exchange rates so accounts in other currencies add up to net worth in dollars.
 - **Made to be used on a phone.** Installable as an app (PWA), bottom navigation, drawers instead of dialogs, and a **privacy mode** (the eye icon) that blurs every amount.
 - **Desktop shortcuts.** `⌘K` command menu, `g` then `d`/`t`/`a`/`s`/`i`/`r` to jump around, `/` to search, `j`/`k` to move through the register, `c` to categorize. Press `?` for the list.
@@ -119,9 +119,12 @@ pnpm lint && pnpm typecheck && pnpm test   # checks and unit tests
 pnpm build && pnpm test:e2e                # Playwright end-to-end tests (needs a production build)
 ```
 
-Notable choices are written down in [`DECISIONS.md`](DECISIONS.md). The stack is Next.js (App Router), TypeScript, SQLite
+Notable choices are written down in [`DECISIONS.md`](DECISIONS.md); the full developer guide is [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). The stack is Next.js (App Router), TypeScript, SQLite
 with Drizzle, Tailwind and shadcn/ui, TanStack Query, and Recharts. Money is always integer cents, formatted only through
 `<Money>` / `formatCents`.
+
+## Documentation
+See [`docs/README.md`](docs/README.md) for the index: architecture, API, development, operations, AI setup and the Actual migration guide. AI agents and new contributors should start with [`AGENTS.md`](AGENTS.md).
 
 ## License
 

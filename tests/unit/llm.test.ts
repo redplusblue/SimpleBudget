@@ -370,3 +370,39 @@ describe("OpenAI-compatible token limit field", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("OpenAI-compatible servers without tool support", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("answers without lookups when the server rejects the tools parameter", async () => {
+    const ok = () =>
+      new Response(
+        new ReadableStream({
+          start: (c) => (
+            c.enqueue(
+              new TextEncoder().encode(
+                `data: ${JSON.stringify({ choices: [{ delta: { content: "from the summary" }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`,
+              ),
+            ),
+            c.close()
+          ),
+        }),
+        { status: 200 },
+      );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{"error":"tools are not supported by this model"}', { status: 400 }))
+      .mockResolvedValueOnce(ok());
+    vi.stubGlobal("fetch", fetchMock);
+    const text = await createOpenAiCompatibleClient({ model: "tiny", baseUrl: "http://openwebui:3000/api" }).generate({
+      system: "s",
+      user: "u",
+      tools: [{ name: "t", description: "d", inputSchema: { type: "object", properties: {} } }],
+      runTool: () => "x",
+    });
+    expect(text).toBe("from the summary");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).tools).toHaveLength(1);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).tools).toBeUndefined();
+    expect(fetchMock.mock.calls[1][0]).toBe("http://openwebui:3000/api/chat/completions");
+  });
+});

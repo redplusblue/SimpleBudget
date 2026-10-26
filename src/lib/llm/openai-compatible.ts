@@ -48,6 +48,8 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
         function: { name: t.name, description: t.description, parameters: t.inputSchema },
       }));
       let text = "";
+      // Some models (and some proxies in front of them) reject the `tools` parameter; then we answer without lookups.
+      let useTools = true;
 
       for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
         let res: Response;
@@ -65,7 +67,7 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
                 messages,
                 [tokenField]: req.maxTokens ?? DEFAULT_MAX_TOKENS,
                 stream: true,
-                ...(tools?.length ? { tools } : {}),
+                ...(tools?.length && useTools ? { tools } : {}),
               }),
             });
           res = await send("max_tokens");
@@ -80,6 +82,10 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
             )
           )
             res = await send("max_completion_tokens");
+          if (res.status === 400 && useTools && tools?.length && round === 0) {
+            useTools = false;
+            res = await send("max_tokens");
+          }
         } catch {
           throw new LlmError("Couldn't reach the AI provider.", "unavailable");
         }
