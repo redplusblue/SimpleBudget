@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { parseArgs } from "node:util";
-import { getAiConfig, getApiKey } from "../lib/llm/config";
+import { getAiConfig, getApiKey, modelFor } from "../lib/llm/config";
 import {
   CONFIDENCES,
   applyProposals,
@@ -27,6 +27,7 @@ import {
   type Proposal,
 } from "../lib/llm/categorize";
 import { createOpenAiCompatibleClient } from "../lib/llm/openai-compatible";
+import { trackRuns } from "../lib/llm/runs";
 import { runMigrations } from "./migrate";
 import { createDb, openSqlite } from "./open";
 
@@ -66,7 +67,7 @@ async function main() {
       console.log(`Loaded ${proposals.length} saved proposals from ${values.from} (no model call).`);
     } else {
       const cfg = getAiConfig(db);
-      const model = values.model ?? cfg.model;
+      const model = values.model ?? modelFor(cfg, "rules");
       if (!cfg.baseUrl || !model) throw new Error("Set the AI server address and model in Settings → AI first.");
       const choices = listCategoryChoices(db);
       const groups = collectUncategorized(db, { maxGroups: positive("max-payees", values["max-payees"]) });
@@ -91,7 +92,12 @@ async function main() {
         rl.close();
         if (answer !== "y" && answer !== "yes") return console.log("Cancelled; nothing was sent.");
       }
-      const llm = createOpenAiCompatibleClient({ apiKey: getApiKey(db), model, baseUrl: cfg.baseUrl });
+      const llm = trackRuns(db, createOpenAiCompatibleClient({ apiKey: getApiKey(db), model, baseUrl: cfg.baseUrl }), {
+        feature: "rules",
+        model,
+        trigger: "manual",
+        subject: "cli",
+      });
       const result = await proposeCategories(llm, groups, choices, {
         batchSize,
         maxCalls,

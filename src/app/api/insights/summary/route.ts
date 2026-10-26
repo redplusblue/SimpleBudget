@@ -4,8 +4,10 @@ import { requireApiAuth } from "@/lib/auth";
 import { getEnv } from "@/lib/env";
 import { currentMonth } from "@/lib/finance/dates";
 import { logger } from "@/lib/logger";
-import { getLlm } from "@/lib/llm";
+import { errorResponse, readJson } from "@/lib/api-errors";
+import { getLlmFor } from "@/lib/llm";
 import { getAiConfig } from "@/lib/llm/config";
+import { assertWithinBudget, trackRuns } from "@/lib/llm/runs";
 import { generateSummary, getCachedSummary } from "@/lib/llm/narrative";
 import { LlmError } from "@/lib/llm/types";
 
@@ -32,9 +34,26 @@ export async function POST(request: Request) {
   const denied = await requireApiAuth();
   if (denied) return denied;
   const db = getDb();
-  const llm = getLlm(db);
-  if (!llm) return NextResponse.json({ error: "ai_disabled", message: "AI is turned off." }, { status: 409 });
+  // The current UI sends no body; an optional { model } picks a model from the list for this run.
+  const requested = (await readJson(request)) as { model?: unknown } | null;
+  const now = Math.floor(Date.now() / 1000);
+  const timeZone = getEnv().TZ;
+  let picked;
+  try {
+    picked = getLlmFor(db, "insights", typeof requested?.model === "string" ? requested.model : undefined);
+    if (picked) assertWithinBudget(db, now, timeZone);
+  } catch (e) {
+    return errorResponse(e);
+  }
+  if (!picked) return NextResponse.json({ error: "ai_disabled", message: "AI is turned off." }, { status: 409 });
   const config = getAiConfig(db);
+  const llm = trackRuns(db, picked.llm, {
+    feature: "insights",
+    model: picked.model,
+    trigger: "manual",
+    subject: currentMonth(now, timeZone),
+    entry: picked.entry,
+  });
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
@@ -45,10 +64,10 @@ export async function POST(request: Request) {
           {
             db,
             llm,
-            model: config.model,
+            model: picked.model,
             includeBalances: config.includeBalances,
-            now: Math.floor(Date.now() / 1000),
-            timeZone: getEnv().TZ,
+            now,
+            timeZone,
           },
           (text) => send({ type: "text", text }),
         );
@@ -64,7 +83,6 @@ export async function POST(request: Request) {
       // The client went away; the in-flight provider request finishes on its own.
     },
   });
-  void request;
   return new Response(stream, {
     headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store" },
   });

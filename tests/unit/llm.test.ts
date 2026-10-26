@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { insightsCache, settings, syncRuns } from "@/db/schema";
+import { aiRuns, insightsCache, settings, syncRuns } from "@/db/schema";
 import { addConnection } from "@/lib/connections";
 import { zonedDayStart } from "@/lib/finance/dates";
 import { createOpenAiCompatibleClient } from "@/lib/llm/openai-compatible";
@@ -8,6 +8,7 @@ import { AiConfigError, getAiConfig, getApiKey, updateAiConfig } from "@/lib/llm
 import { buildAiContext } from "@/lib/llm/context";
 import { getLlm, withDevLogging } from "@/lib/llm";
 import { answerQuestion, generateSummary, getCachedSummary } from "@/lib/llm/narrative";
+import { trackRuns } from "@/lib/llm/runs";
 import { createToolRunner } from "@/lib/llm/tools";
 import type { GenerateRequest, LlmClient } from "@/lib/llm/types";
 import { addAccount, addTxn, categoryId, freshDb } from "../helpers/db";
@@ -514,5 +515,17 @@ describe("usage", () => {
     vi.stubGlobal("fetch", fetchMock);
     expect(await client().generate({ system: "s", user: "u" })).toBe("ok");
     expect(JSON.parse(fetchMock.mock.calls[1][1].body).stream_options).toBeUndefined();
+  });
+});
+
+describe("tracked runs", () => {
+  it("summary and ask still work through trackRuns and leave ai_runs rows", async () => {
+    const { db } = dataset();
+    const meta = { feature: "chat", model: "m", trigger: "manual" } as const;
+    const tracked = trackRuns(db, fakeLlm("hello").client, meta, () => NOW);
+    const env = { db, llm: tracked, model: "m", includeBalances: false, now: NOW, timeZone: TZ };
+    expect((await generateSummary(env)).text).toBe("hello");
+    expect(await answerQuestion(env, "How much did I spend?")).toBe("hello");
+    expect(db.select().from(aiRuns).all()).toHaveLength(2);
   });
 });
