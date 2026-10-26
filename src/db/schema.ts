@@ -357,3 +357,15 @@ export const aiInsights = sqliteTable(
   },
   (t) => [index("ai_insights_batch_idx").on(t.batch)],
 );
+
+export const NOTIFY_DESTINATION_KINDS = ["ntfy", "webhook", "discord"] as const;
+
+/** Places automations can send to. Addresses are encrypted and write-only, like the alert target. */
+export const notifyDestinations = sqliteTable("notify_destinations", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  kind: text("kind", { enum: NOTIFY_DESTINATION_KINDS }).notNull(),
+  urlEnc: text("url_enc").notNull(),
+  tokenEnc: text("token_enc"),
+  createdAt: integer("created_at").notNull(),
+});

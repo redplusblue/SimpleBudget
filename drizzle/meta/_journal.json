@@ -71,6 +71,13 @@
       "when": 1793048734400,
       "tag": "0009_foamy_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793056398196,
+      "tag": "0010_wandering_maelstrom",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { AiConfigError } from "@/lib/llm/config";
+import { DestinationError } from "@/lib/automations/destinations";
 import { AssistantError } from "@/lib/ai/assistant";
 import { MemoryError } from "@/lib/ai/memory";
 import { ProposalError } from "@/lib/ai/proposals";
@@ -43,6 +44,7 @@ export function errorResponse(e: unknown): NextResponse {
     e instanceof ProposalError ||
     e instanceof MemoryError ||
     e instanceof AssistantError ||
+    e instanceof DestinationError ||
     e instanceof TaxonomyError ||
     e instanceof TargetError ||
     e instanceof RuleError ||
