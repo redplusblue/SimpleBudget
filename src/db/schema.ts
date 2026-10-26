@@ -298,3 +298,62 @@ export const aiProposals = sqliteTable(
   },
   (t) => [index("ai_proposals_status_idx").on(t.kind, t.status), index("ai_proposals_subject_idx").on(t.subjectKey)],
 );
+
+export const aiThreads = sqliteTable("ai_threads", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  lens: text("lens").notNull().default("general"),
+  /** Rolling summary of the messages up to `summaryUpTo` (a message id). */
+  summary: text("summary"),
+  summaryUpTo: integer("summary_up_to"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const aiMessages = sqliteTable(
+  "ai_messages",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    threadId: integer("thread_id")
+      .notNull()
+      .references(() => aiThreads.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["user", "assistant"] }).notNull(),
+    content: text("content").notNull(),
+    model: text("model"),
+    aiRunId: integer("ai_run_id").references(() => aiRuns.id, { onDelete: "set null" }),
+    /** Names of tools the model called while writing this message, JSON array. */
+    toolsJson: text("tools_json"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [index("ai_messages_thread_idx").on(t.threadId, t.id)],
+);
+
+/** Facts about the owner that the owner wrote or approved; sent with every AI request. */
+export const aiMemories = sqliteTable("ai_memories", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  text: text("text").notNull(),
+  source: text("source", { enum: ["user", "assistant"] }).notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const aiInsights = sqliteTable(
+  "ai_insights",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** Cards generated together share a batch id. */
+    batch: integer("batch").notNull(),
+    lens: text("lens").notNull(),
+    model: text("model"),
+    aiRunId: integer("ai_run_id").references(() => aiRuns.id, { onDelete: "set null" }),
+    severity: text("severity", { enum: ["info", "good", "warn"] }).notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    factIdsJson: text("fact_ids_json").notNull(),
+    link: text("link"),
+    pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+    dismissedAt: integer("dismissed_at"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [index("ai_insights_batch_idx").on(t.batch)],
+);

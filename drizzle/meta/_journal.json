@@ -64,6 +64,13 @@
       "when": 1793022759492,
       "tag": "0008_crazy_firebird",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793048734400,
+      "tag": "0009_foamy_mad_thinker",
+      "breakpoints": true
     }
   ]
 }
