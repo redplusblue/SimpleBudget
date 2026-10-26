@@ -12,6 +12,15 @@ export interface ChatTurn {
   content: string;
 }
 
+export interface LlmUsage {
+  promptTokens: number;
+  completionTokens: number;
+  /** Prompt tokens the provider served from its cache, when it says so. */
+  cachedTokens: number;
+  /** Cost in micro-USD when the server reports it (OpenRouter does), else null. */
+  costMicros: number | null;
+}
+
 export interface GenerateRequest {
   system: string;
   user: string;
@@ -22,6 +31,8 @@ export interface GenerateRequest {
   runTool?: (name: string, input: unknown) => Promise<string> | string;
   /** Called with each piece of the answer as it arrives (enables streaming). */
   onText?: (delta: string) => void;
+  /** Called once per provider round-trip with that round's usage (a tool-using answer has several rounds). */
+  onUsage?: (usage: LlmUsage) => void;
   maxTokens?: number;
   signal?: AbortSignal;
 }

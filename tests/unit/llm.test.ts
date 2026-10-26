@@ -446,3 +446,73 @@ describe("OpenAI-compatible servers without tool support", () => {
     expect(fetchMock.mock.calls[1][0]).toBe("http://openwebui:3000/api/chat/completions");
   });
 });
+
+describe("usage", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const sse = (events: unknown[]) =>
+    new Response(
+      new ReadableStream({
+        start(c) {
+          for (const e of events)
+            c.enqueue(new TextEncoder().encode(`data: ${typeof e === "string" ? e : JSON.stringify(e)}\n\n`));
+          c.close();
+        },
+      }),
+      { status: 200 },
+    );
+  const text = (content: string) => ({ choices: [{ delta: { content }, finish_reason: "stop" }] });
+  const usageChunk = {
+    choices: [],
+    usage: { prompt_tokens: 120, completion_tokens: 30, cost: 0.00042, prompt_tokens_details: { cached_tokens: 100 } },
+  };
+  const client = () => createOpenAiCompatibleClient({ model: "m", baseUrl: "http://x/v1" });
+
+  it("reports usage once per round, with cost in micro-dollars", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(sse([text("hi"), usageChunk, "[DONE]"]));
+    vi.stubGlobal("fetch", fetchMock);
+    const seen: unknown[] = [];
+    await client().generate({ system: "s", user: "u", onUsage: (u) => seen.push(u) });
+    expect(seen).toEqual([{ promptTokens: 120, completionTokens: 30, cachedTokens: 100, costMicros: 420 }]);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).stream_options).toEqual({ include_usage: true });
+  });
+
+  it("reports each round of a tool-using answer", async () => {
+    const toolRound = {
+      choices: [
+        {
+          delta: { tool_calls: [{ index: 0, id: "c1", function: { name: "t", arguments: "{}" } }] },
+          finish_reason: "tool_calls",
+        },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(sse([toolRound, usageChunk, "[DONE]"]))
+        .mockResolvedValueOnce(sse([text("done"), usageChunk, "[DONE]"])),
+    );
+    const onUsage = vi.fn();
+    const out = await client().generate({ system: "s", user: "u", tools: [], runTool: () => "ok", onUsage });
+    expect(out).toBe("done");
+    expect(onUsage).toHaveBeenCalledTimes(2);
+  });
+
+  it("stays quiet when the server sends no usage", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sse([text("hi"), "[DONE]"])));
+    const onUsage = vi.fn();
+    expect(await client().generate({ system: "s", user: "u", onUsage })).toBe("hi");
+    expect(onUsage).not.toHaveBeenCalled();
+  });
+
+  it("retries without stream_options when the server rejects it", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{"error":"unknown parameter stream_options"}', { status: 400 }))
+      .mockResolvedValueOnce(sse([text("ok"), "[DONE]"]));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await client().generate({ system: "s", user: "u" })).toBe("ok");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).stream_options).toBeUndefined();
+  });
+});

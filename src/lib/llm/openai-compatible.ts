@@ -1,4 +1,12 @@
-import { clip, DEFAULT_MAX_TOKENS, LlmError, MAX_TOOL_ROUNDS, type GenerateRequest, type LlmClient } from "./types";
+import {
+  clip,
+  DEFAULT_MAX_TOKENS,
+  LlmError,
+  MAX_TOOL_ROUNDS,
+  type GenerateRequest,
+  type LlmClient,
+  type LlmUsage,
+} from "./types";
 
 // Plain fetch against any server that speaks the OpenAI chat-completions protocol (OpenAI, Ollama, LM Studio, ...).
 
@@ -35,6 +43,20 @@ async function* sse(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
   if (rest.startsWith("data:")) yield rest.slice(5).trim();
 }
 
+const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+
+/** Maps the OpenAI-style `usage` object (OpenRouter adds `cost` in USD) to our shape. */
+function toUsage(u: Record<string, unknown>): LlmUsage {
+  const details = u.prompt_tokens_details as Record<string, unknown> | null | undefined;
+  const cost = typeof u.cost === "number" && Number.isFinite(u.cost) ? Math.round(u.cost * 1_000_000) : null;
+  return {
+    promptTokens: num(u.prompt_tokens),
+    completionTokens: num(u.completion_tokens),
+    cachedTokens: num(details?.cached_tokens),
+    costMicros: cost,
+  };
+}
+
 export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: string; baseUrl: string }): LlmClient {
   return {
     async generate(req: GenerateRequest) {
@@ -50,6 +72,8 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
       let text = "";
       // Some models (and some proxies in front of them) reject the `tools` parameter; then we answer without lookups.
       let useTools = true;
+      // Likewise for `stream_options` (asks for a final usage chunk); tried once, then dropped for the rest of the call.
+      let useStreamOptions = true;
 
       for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
         let res: Response;
@@ -67,10 +91,12 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
                 messages,
                 [tokenField]: req.maxTokens ?? DEFAULT_MAX_TOKENS,
                 stream: true,
+                ...(useStreamOptions ? { stream_options: { include_usage: true } } : {}),
                 ...(tools?.length && useTools ? { tools } : {}),
               }),
             });
-          res = await send("max_tokens");
+          let field: "max_tokens" | "max_completion_tokens" = "max_tokens";
+          res = await send(field);
           // Newer OpenAI models refuse `max_tokens` and ask for `max_completion_tokens`; most servers accept the first.
           if (
             res.status === 400 &&
@@ -80,8 +106,23 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
                 .text()
                 .catch(() => ""),
             )
-          )
-            res = await send("max_completion_tokens");
+          ) {
+            field = "max_completion_tokens";
+            res = await send(field);
+          }
+          if (
+            res.status === 400 &&
+            useStreamOptions &&
+            /stream_options/.test(
+              await res
+                .clone()
+                .text()
+                .catch(() => ""),
+            )
+          ) {
+            useStreamOptions = false;
+            res = await send(field);
+          }
           if (res.status === 400 && useTools && tools?.length && round === 0) {
             useTools = false;
             res = await send("max_tokens");
@@ -101,10 +142,13 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
         let content = "";
         const calls = new Map<number, ToolCall>();
         let finish: string | null = null;
+        let usage: LlmUsage | undefined;
         try {
           for await (const data of sse(res.body)) {
             if (data === "[DONE]") break;
-            const choice = JSON.parse(data).choices?.[0];
+            const parsed = JSON.parse(data);
+            if (parsed.usage && typeof parsed.usage === "object") usage = toUsage(parsed.usage);
+            const choice = parsed.choices?.[0];
             if (!choice) continue;
             const delta = choice.delta ?? {};
             if (typeof delta.content === "string" && delta.content) {
@@ -128,6 +172,8 @@ export function createOpenAiCompatibleClient(opts: { apiKey?: string; model: str
         } catch {
           throw new LlmError("The AI provider sent a response that couldn't be read.", "bad_response");
         }
+
+        if (usage) req.onUsage?.(usage);
 
         if (calls.size === 0 || !req.runTool) {
           if (finish === "content_filter") throw new LlmError("The AI provider declined to answer that.", "declined");
