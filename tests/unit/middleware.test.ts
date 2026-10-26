@@ -47,6 +47,8 @@ describe("middleware", () => {
     "/api/settings/ai/test",
     "/api/ai/usage",
     "/api/ai/proposals",
+    "/api/ai/memories",
+    "/api/ai/memories/1",
     "/api/ai/proposals/1/accept",
     "/api/ai/proposals/1/dismiss",
     "/api/ai/proposals/accept-all",
