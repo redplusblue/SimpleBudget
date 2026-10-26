@@ -1,10 +1,11 @@
 import { createServer, type Server } from "node:http";
 import { expect, test, type Page } from "@playwright/test";
-import { expectNoHorizontalOverflow } from "./helpers";
+import { expectNoHorizontalOverflow, insertExpense } from "./helpers";
 
 // Uses the "targets" project's seeded server. A tiny OpenAI-compatible server stands in for the provider and records
 // exactly what the app sends it.
 const MOCK_PORT = 3198;
+const DB = "./data/e2e-targets.db";
 test.describe.configure({ mode: "serial" });
 
 interface Recorded {
@@ -34,6 +35,18 @@ test.beforeAll(async () => {
       }
       const body = JSON.parse(raw);
       requests.push({ body, auth: req.headers.authorization });
+      if (String(body.messages[0]?.content).startsWith("You help a personal-budget app write categorization rules")) {
+        // Answer for each numbered payee line of the prompt: ZZQ ALPHA -> Dining (high), ZZQ BRAVO -> Shopping, else Other.
+        const answers = [...String(body.messages.at(-1)?.content).matchAll(/^(\d+)\. (.+?) \|/gm)].map((m) => {
+          const name = m[2].toLowerCase();
+          if (name.includes("zzq alpha")) return { i: Number(m[1]), category: "Dining", confidence: "high" };
+          if (name.includes("zzq bravo")) return { i: Number(m[1]), category: "Shopping", confidence: "medium" };
+          return { i: Number(m[1]), category: "Other", confidence: "low" };
+        });
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        res.end(sse([delta({ content: JSON.stringify(answers) }, "stop")]));
+        return;
+      }
       const hasTools = Array.isArray(body.tools) && body.tools.length > 0;
       const sawToolResult = body.messages.some((m: { role: string }) => m.role === "tool");
       res.writeHead(200, { "content-type": "text/event-stream" });
@@ -198,6 +211,59 @@ test("a model list lets the Ask box pick a model for one request", async ({ page
   await expect(page.getByRole("list", { name: "Recent AI requests" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.request.put("/api/settings/ai", { data: { models: null, featureModels: null } });
+});
+
+test("AI suggests rules; accept one with a changed category, dismiss another, and it isn't asked again", async ({
+  page,
+}) => {
+  await login(page);
+  const cfg = await page.request.put("/api/settings/ai", {
+    data: { enabled: true, baseUrl: `http://127.0.0.1:${MOCK_PORT}/v1`, model: "mock-model" },
+  });
+  expect(cfg.status()).toBe(200);
+  for (const n of [1, 2]) {
+    insertExpense(DB, { accountId: "fake-checking", description: `ZZQ ALPHA STORE #${n}`, dollars: 12 });
+    insertExpense(DB, { accountId: "fake-checking", description: `ZZQ BRAVO SHOP #${n}`, dollars: 30 });
+  }
+
+  await page.goto("/rules");
+  await page.getByRole("button", { name: "Find suggestions" }).click();
+  const alpha = page.getByTestId("ai-suggestion").filter({ hasText: /zzq alpha/i });
+  const bravo = page.getByTestId("ai-suggestion").filter({ hasText: /zzq bravo/i });
+  await expect(alpha).toBeVisible();
+  await expect(bravo).toBeVisible();
+  await expect(alpha).toContainText("high confidence");
+  await expect(alpha).toContainText("Matches 2");
+
+  // A phone shows the suggestions without sideways scrolling.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoHorizontalOverflow(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  // Change the category before accepting: the rule follows the owner's choice.
+  await bravo.getByRole("combobox").click();
+  await page.getByRole("option", { name: "Groceries" }).click();
+  await bravo.getByRole("button", { name: "Accept" }).click();
+  await expect(page.getByText(/Rule "AI · Groceries" saved · 2 transactions updated/)).toBeVisible();
+  await expect(bravo).toHaveCount(0);
+  await expect(page.getByText("AI · Groceries").first()).toBeVisible();
+
+  await alpha.getByRole("button", { name: "Dismiss" }).click();
+  await expect(alpha).toHaveCount(0);
+
+  // A second run never asks about a dismissed (or accepted) merchant again.
+  requests = [];
+  const find = page.getByRole("button", { name: "Find suggestions" });
+  if (await find.isEnabled()) {
+    await find.click();
+    await expect(page.getByText(/No new suggestions|new suggestion/).first()).toBeVisible();
+  }
+  expect(JSON.stringify(requests.map((r) => r.body)).toLowerCase()).not.toContain("zzq alpha");
+  await expect(alpha).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Show dismissed" }).click();
+  await expect(page.getByRole("list", { name: "Dismissed suggestions" })).toContainText(/zzq alpha/i);
+  await page.getByRole("button", { name: "Ask again" }).first().click();
 });
 
 test("the AI settings and panel fit a phone, and AI can be turned off again", async ({ page }) => {

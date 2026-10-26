@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
+import { AiRuleSuggestions } from "@/components/rules/ai-suggestions";
 import { ApplyDialog, type ApplyTarget } from "@/components/rules/apply-dialog";
 import { describeRule, suggestRuleName, type Names } from "@/components/rules/describe";
 import { emptyDraft, newCondition, ruleToDraft, type RuleDraft } from "@/components/rules/draft";
@@ -152,6 +153,8 @@ export function RulesPage() {
           </Button>
         </div>
       </div>
+
+      <AiRuleSuggestions />
 
       {rulesQuery.isPending ? (
         <div className="space-y-2" aria-busy>
