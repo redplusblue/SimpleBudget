@@ -48,12 +48,23 @@ Never sent: account numbers/ids, the SimpleFIN access URL, raw bank descriptions
 Question tools return normalized payee, date, amount, category for ≤ 50 rows. In development (`NODE_ENV=development`) the exact outgoing payload is logged to the server console; tests assert that no account id or access URL appears in a request.
 Remember that with a hosted server (OpenRouter and the model vendor behind it) this aggregated data does leave your network; use a local server (Open WebUI with a local model) if that matters.
 
+## Choosing models
+Three layers (Settings → AI):
+1. **The model list** ("Models you allow"): a JSON array of `{ "id", "label"?, "inputPerMTok"?, "outputPerMTok"? }` (or plain strings). All models share the one server address and key. Empty = just the "Default model".
+2. **A default model per feature** (`rules`, `chat`, `insights`, `trace`, `automations`, `search`, `web`); unset falls back to the default model.
+3. **A per-request choice**: buttons with a model dropdown (Monthly summary, Ask) preselect the feature default; changing it affects only that request. The server rejects any model not in the list (400).
+
+## Costs and the monthly budget
+Every model request from the app or `pnpm ai:categorize` writes one row to `ai_runs` (feature, model, trigger, tokens, cost, status; never prompt text). Cost is the provider's figure when it reports one (OpenRouter's `usage.cost`), otherwise estimated from the list's `inputPerMTok`/`outputPerMTok`, otherwise unknown. Costs are stored as integer micro-USD. The client asks for usage with `stream_options.include_usage`; a server that rejects that parameter is retried once without it. Set a **monthly budget** (USD) and every request is refused once the month's recorded cost reaches it; `0` pauses all AI, empty means no cap. Settings → AI shows this month's spend, per-feature totals and the last 20 runs.
+
 ## Where the code is
 | File | Role |
 | --- | --- |
 | `src/lib/llm/types.ts` | `LlmClient.generate({system, user, history?, tools?, runTool?, onText?})`, `LlmError` |
 | `src/lib/llm/openai-compatible.ts` | the only client: SSE streaming, tool loop (≤ 6 rounds), error mapping, `max_tokens` fallback, tool-less retry |
-| `src/lib/llm/config.ts` | settings (`ai:*`), encrypted key, validation |
+| `src/lib/llm/config.ts` | settings (`ai:*`), encrypted key, validation, `modelFor` / `isAllowedModel` |
+| `src/lib/llm/models.ts` | client-safe: `AiFeature`s, model-list schema and parser |
+| `src/lib/llm/runs.ts` | `trackRuns` (writes `ai_runs`), monthly spend, budget check, usage report |
 | `src/lib/llm/context.ts` | the allow-listed data the model may see |
 | `src/lib/llm/tools.ts` | the tools |
 | `src/lib/llm/analysis.ts` | the compact reports the tools, MCP server and export share |

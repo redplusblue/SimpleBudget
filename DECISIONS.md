@@ -187,6 +187,13 @@
 - **MCP server is hand-rolled** (about 100 lines of JSON-RPC over stdio: initialize, ping, tools/list, tools/call) instead of adding `@modelcontextprotocol/sdk`, matching the no-vendor-SDK stance of the AI client. It opens SQLite read-only. If the protocol surface grows (resources, prompts, HTTP transport), switch to the SDK and record it here.
 - CLIs run through `tsx --conditions=react-server` so that `server-only` resolves to its empty module outside Next.
 
+## AI enhancements (plan in docs/plans/ai)
+
+- **Model list + per-feature defaults.** One server and key, many allowed models (`ai:models`), a default per feature (`ai:feature_models`), and a per-request override that the server validates against the list. Without a list nothing changes: the list is just `ai:model`.
+- **Costs are integer micro-USD** (`ai_runs.cost_micros`), reported by the provider when possible, else estimated from optional per-million-token prices, else null (unknown cost never counts toward the budget).
+- **The monthly budget refuses every AI call when reached, manual ones included**; `0` pauses all AI. A hard stop is simpler and safer than letting only background runs obey it.
+- **No vector database / classic RAG.** The data is structured and already in SQLite, and tools query it exactly. Tokens are saved with memory (facts the owner approved), saved conversations with rolling summaries, compact computed reports and a stable prompt prefix that providers can cache.
+
 ## Documentation and handoff
 
 `AGENTS.md` (fast path for agents), `CLAUDE.md` (points to it) and `docs/` (architecture, API table, development, operations, AI, Actual migration) were written so that a new agent can continue without the original conversation. Keep them current: when you change behaviour, update the doc that describes it in the same commit.
