@@ -6,11 +6,15 @@ export interface Notification {
   /** "default" | "high": high makes ntfy alert louder. */
   priority?: "default" | "high";
   /** The kind of event, for webhook receivers: sync_failed, large_transaction, test. */
-  event: "sync_failed" | "large_transaction" | "ai_suggestions" | "test";
+  event: "sync_failed" | "large_transaction" | "ai_suggestions" | "automation" | "test";
+  /** Colors Discord messages; ntfy and webhooks ignore it. */
+  severity?: "info" | "good" | "warn";
+  /** A relative app path. Not rendered anywhere yet (the app's public address isn't known). */
+  url?: string;
 }
 
 export interface SendTarget {
-  kind: "ntfy" | "webhook";
+  kind: "ntfy" | "webhook" | "discord";
   url: string;
   token: string | null;
 }
@@ -19,6 +23,8 @@ const TIMEOUT_MS = 8_000;
 
 /** HTTP headers must be plain ASCII/latin-1; ntfy reads Title from one. */
 const headerSafe = (s: string) => s.replace(/[^\x20-\x7e]/g, "?").slice(0, 200);
+
+const DISCORD_COLORS = { warn: 0xe5484d, good: 0x30a46c, info: 0x6e56cf } as const;
 
 /**
  * Sends one notification: ntfy gets the message as the body with Title/Priority headers, any other server gets a
@@ -30,9 +36,17 @@ export async function sendNotification(
   fetchImpl: typeof fetch = fetch,
 ): Promise<{ ok: boolean; status: number | null }> {
   const headers: Record<string, string> = {};
-  if (target.token) headers.authorization = `Bearer ${target.token}`;
+  if (target.token && target.kind !== "discord") headers.authorization = `Bearer ${target.token}`;
   let body: string;
-  if (target.kind === "ntfy") {
+  if (target.kind === "discord") {
+    // The webhook address is the credential: no token header.
+    headers["content-type"] = "application/json";
+    const tone = n.priority === "high" || n.severity === "warn" ? "warn" : (n.severity ?? "info");
+    body = JSON.stringify({
+      username: "SimpleBudget",
+      embeds: [{ title: n.title.slice(0, 256), description: n.message.slice(0, 4000), color: DISCORD_COLORS[tone] }],
+    });
+  } else if (target.kind === "ntfy") {
     headers.title = headerSafe(n.title);
     headers.priority = n.priority === "high" ? "high" : "default";
     headers.tags =

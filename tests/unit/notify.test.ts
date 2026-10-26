@@ -284,3 +284,67 @@ describe("a real sync", () => {
     }
   });
 });
+
+describe("Discord", () => {
+  const hook = "https://discord.com/api/webhooks/123456/abcDEF-token";
+
+  it("posts an embed, truncated, with a color by severity and no auth header", async () => {
+    const { calls, impl } = fakeFetch();
+    const target = { kind: "discord" as const, url: hook, token: "should-not-be-sent" };
+    await sendNotification(
+      target,
+      { event: "automation", title: "T".repeat(300), message: "M".repeat(5000), severity: "good" },
+      impl,
+    );
+    const body = JSON.parse(String(calls[0].init.body));
+    expect(body.username).toBe("SimpleBudget");
+    expect(body.embeds).toHaveLength(1);
+    expect(body.embeds[0].title).toHaveLength(256);
+    expect(body.embeds[0].description).toHaveLength(4000);
+    expect(body.embeds[0].color).toBe(0x30a46c);
+    expect((calls[0].init.headers as Record<string, string>).authorization).toBeUndefined();
+    expect((calls[0].init.headers as Record<string, string>)["content-type"]).toBe("application/json");
+  });
+
+  it("colors warnings and high priority red, everything else purple", async () => {
+    const color = async (n: object) => {
+      const { calls, impl } = fakeFetch();
+      await sendNotification(
+        { kind: "discord", url: hook, token: null },
+        { event: "test", title: "t", message: "m", ...n },
+        impl,
+      );
+      return JSON.parse(String(calls[0].init.body)).embeds[0].color;
+    };
+    expect(await color({ severity: "warn" })).toBe(0xe5484d);
+    expect(await color({ priority: "high" })).toBe(0xe5484d);
+    expect(await color({})).toBe(0x6e56cf);
+  });
+
+  it("only accepts Discord webhook addresses for the discord kind", () => {
+    const db = freshDb();
+    expect(() => updateNotifyConfig(db, { kind: "discord", url: "https://example.com/hook" })).toThrow(
+      /doesn't look like a Discord webhook URL/,
+    );
+    expect(updateNotifyConfig(db, { kind: "discord", url: hook, enabled: true })).toMatchObject({
+      kind: "discord",
+      host: "discord.com",
+    });
+    expect(updateNotifyConfig(db, { url: "https://discordapp.com/api/webhooks/1/x" }).host).toBe("discordapp.com");
+    // switching an existing, non-Discord address to Discord is refused too
+    const other = freshDb();
+    updateNotifyConfig(other, { url: URL_ });
+    expect(() => updateNotifyConfig(other, { kind: "discord" })).toThrow(NotifyConfigError);
+  });
+
+  it("leaves ntfy and webhook bodies unchanged", async () => {
+    const { calls, impl } = fakeFetch();
+    await sendNotification(
+      { kind: "webhook", url: "https://x.example/h", token: "tok" },
+      { event: "test", title: "t", message: "m" },
+      impl,
+    );
+    expect(JSON.parse(String(calls[0].init.body))).toMatchObject({ app: "SimpleBudget", event: "test" });
+    expect((calls[0].init.headers as Record<string, string>).authorization).toBe("Bearer tok");
+  });
+});

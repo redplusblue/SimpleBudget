@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { DbLike } from "@/db/open";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { deleteSetting, getSetting, setSetting } from "@/lib/settings";
+import { notifyUrlProblem } from "./url";
 
 const K = {
   enabled: "notify:enabled",
@@ -15,7 +16,7 @@ const K = {
   details: "notify:details",
 } as const;
 
-export const NOTIFY_KINDS = ["ntfy", "webhook"] as const;
+export const NOTIFY_KINDS = ["ntfy", "webhook", "discord"] as const;
 export type NotifyKind = (typeof NOTIFY_KINDS)[number];
 export const DEFAULT_LARGE_CENTS = 500_00;
 
@@ -102,6 +103,16 @@ export function updateNotifyConfig(db: DbLike, input: unknown): NotifyConfig {
   const hasUrl = patch.url === undefined ? current.hasUrl : patch.url !== null;
   if ((patch.enabled ?? current.enabled) && !hasUrl)
     throw new NotifyConfigError("Add where notifications should go before turning them on.");
+  // A new address, or a changed kind with an address already saved, must suit the kind.
+  const kind = patch.kind ?? current.kind;
+  const urlToCheck =
+    typeof patch.url === "string"
+      ? patch.url
+      : patch.url === undefined && current.hasUrl
+        ? getNotifyTarget(db)?.url
+        : undefined;
+  const problem = urlToCheck ? notifyUrlProblem(kind, urlToCheck) : null;
+  if (problem) throw new NotifyConfigError(problem);
   db.transaction((tx) => {
     const bool = (key: string, v: boolean | undefined) => v !== undefined && setSetting(tx, key, v ? "1" : "0");
     bool(K.enabled, patch.enabled);

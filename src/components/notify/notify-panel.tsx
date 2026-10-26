@@ -127,12 +127,15 @@ export function NotifyPanel() {
               <SelectContent>
                 <SelectItem value="ntfy">ntfy (a topic address)</SelectItem>
                 <SelectItem value="webhook">Webhook (JSON)</SelectItem>
+                <SelectItem value="discord">Discord (webhook)</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="n-url">{kind === "ntfy" ? "Topic address" : "Webhook address"}</Label>
+            <Label htmlFor="n-url">
+              {kind === "ntfy" ? "Topic address" : kind === "discord" ? "Discord webhook address" : "Webhook address"}
+            </Label>
             <Input
               id="n-url"
               type="password"
@@ -142,15 +145,17 @@ export function NotifyPanel() {
                   ? `Saved (${cfg.host ?? "unreadable"}). Paste a new address to replace it`
                   : kind === "ntfy"
                     ? "https://ntfy.sh/your-long-private-topic"
-                    : "https://example.com/hooks/simplebudget"
+                    : kind === "discord"
+                      ? "https://discord.com/api/webhooks/…"
+                      : "https://example.com/hooks/simplebudget"
               }
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               className="h-11 md:h-9"
             />
             <p className="text-xs text-muted-foreground">
-              Stored encrypted. A topic name is like a password: anyone who knows it can read your alerts, so make it
-              long and random.
+              {kind === "discord" && "Server Settings → Integrations → Webhooks → Copy URL. "}Stored encrypted. A topic
+              name is like a password: anyone who knows it can read your alerts, so make it long and random.
             </p>
             {cfg.hasUrl && (
               <Button
@@ -166,18 +171,20 @@ export function NotifyPanel() {
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="n-token">Access token (optional)</Label>
-            <Input
-              id="n-token"
-              type="password"
-              autoComplete="off"
-              placeholder={cfg.hasToken ? "Saved. Type a new one to replace it" : "Only if your server needs one"}
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              className="h-11 md:h-9"
-            />
-          </div>
+          {kind !== "discord" && (
+            <div className="space-y-2">
+              <Label htmlFor="n-token">Access token (optional)</Label>
+              <Input
+                id="n-token"
+                type="password"
+                autoComplete="off"
+                placeholder={cfg.hasToken ? "Saved. Type a new one to replace it" : "Only if your server needs one"}
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                className="h-11 md:h-9"
+              />
+            </div>
+          )}
 
           <fieldset className="space-y-3">
             <legend className="mb-1 text-sm font-medium">Tell me about</legend>
