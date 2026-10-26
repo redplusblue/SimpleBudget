@@ -62,6 +62,14 @@ Handlers are thin: logic and zod validation are in `src/lib/...`; read the match
 | GET | `/api/settings/ai` | The AI settings. The API key is write-only: responses say whether one is saved, never what it is. |
 | PUT | `/api/settings/ai` | Update AI settings: `{ enabled?, baseUrl?, model?, includeBalances?, apiKey? (string saves, null removes), models? (parsed `[{id,label?,inputPerMTok?,outputPerMTok?}]`, null clears), featureModels? (`{ feature: modelId }`, null clears), monthlyBudgetMicros? (null = no cap, 0 = pause AI) }`. Feature defaults and the default model must be in the model list. Turning on needs a server address and a model. |
 | GET | `/api/ai/usage` | This month's AI spend vs budget, per-feature totals and the last 20 runs (no prompt text). |
+| GET | `/api/ai/proposals` | `?kind=rule&status=pending` (defaults; `status=dismissed` also returns `no_match`). `{ proposals }` with fresh previews; `stillValid: false` + `problem` when the category/tag is gone. |
+| POST | `/api/ai/proposals/[id]/accept` | `{ categoryId?, applyExisting? (default true) }` creates or extends the rule, optionally categorizing existing empty matches. `{ ruleId, ruleName, mode, categorized }`. 409 if already handled. |
+| POST | `/api/ai/proposals/[id]/dismiss` | Dismisses a pending suggestion. |
+| DELETE | `/api/ai/proposals/[id]` | Forgets a dismissed/no_match suggestion so the merchant can be asked again. |
+| POST | `/api/ai/proposals/accept-all` | `{ minConfidence: "high"\|"medium", applyExisting? }` accepts non-conflicting pending suggestions. `{ accepted, skipped, categorized }`. |
+| GET | `/api/ai/rule-suggestions/plan` | `?model=` optional. What a run would do (eligible merchants, requests, tokens, cost when prices are known). Free. |
+| POST | `/api/ai/rule-suggestions/run` | `{ model? }` asks the model and stores suggestions. 409 `ai_disabled` / `busy`; refused over budget. `{ created, noMatch, unanswered, calls, deferred }`. |
+| GET / PUT | `/api/settings/ai/rules` | Suggestion schedule: `{ schedule: manual\|after_sync\|interval, intervalDays, minNewMerchants, maxMerchantsPerRun, suggestTags }` plus read-only `lastRunAt`. |
 | POST | `/api/settings/ai/test` | Sends a tiny fixed prompt (no financial data) to check the key, model and URL. |
 | GET | `/api/settings/currency` | The non-dollar currencies your accounts use, and the rate saved for each. |
 | PUT | `/api/settings/currency` | `{ rates: { EUR: 1.0856 } }`: 1 unit of the currency in US dollars. |

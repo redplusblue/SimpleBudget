@@ -17,7 +17,7 @@ import { listRules, loadTargets } from "@/lib/rules/store";
 import type { Rule } from "@/lib/rules/types";
 import { type RuleProposalPayload } from "./proposal-types";
 import { hasProposalFor } from "./proposals";
-import { candidateRule, categoryAction, choosePattern } from "./rule-target";
+import { candidateRule, categoryAction, choosePattern, loadPreviewData } from "./rule-target";
 
 // Asks the model which category each unknown merchant belongs to, then turns the answers into *proposals for rules*.
 // The model never touches a transaction: the owner accepts a rule, and the normal rules engine does the rest.
@@ -185,6 +185,7 @@ export async function suggestRules(
       continue;
     }
     const aiRunId = env.runId?.() ?? null;
+    const loaded = loadPreviewData(db); // fresh per batch: earlier batches may have been stored meanwhile
     const answered = new Map(answers.map((a) => [a.group.key, a]));
     const rows: (typeof aiProposals.$inferInsert)[] = [];
 
@@ -219,7 +220,7 @@ export async function suggestRules(
         continue;
       }
       const action = categoryAction(answer.choice.id, answer.choice.name);
-      const { pattern, preview } = choosePattern(db, group, action, answer.contains, env.timeZone);
+      const { pattern, preview } = choosePattern(db, group, action, answer.contains, env.timeZone, loaded);
       const draft: RuleProposalPayload = {
         merchant,
         action,

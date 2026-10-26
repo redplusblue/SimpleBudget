@@ -4,7 +4,7 @@ import { localDateString } from "@/lib/finance/dates";
 import { payeeKey } from "@/lib/finance/payee";
 import type { PayeeGroup } from "@/lib/llm/categorize";
 import { conditionMatches, rulePayee } from "@/lib/rules/engine";
-import { applyRules, loadTargets } from "@/lib/rules/store";
+import { loadTargets } from "@/lib/rules/store";
 import { MAX_CONDITIONS, type Condition, type Rule, type RuleActions } from "@/lib/rules/types";
 import type { ProposalPreview, RuleAction, RuleProposalPayload } from "./proposal-types";
 
@@ -67,30 +67,45 @@ export function candidateRule(rules: Rule[], payload: RuleProposalPayload): { ru
   };
 }
 
-function previewCondition(db: DbLike, cond: Condition, action: RuleAction, timeZone: string): ProposalPreview {
-  const actions = actionsFor(action);
-  const rule: Rule = { id: 0, name: "", priority: 0, enabled: true, match: "all", conditions: [cond], actions };
-  const { matched, changed } = applyRules(db, { rules: [rule], dryRun: true, overwrite: false });
-  const out: ProposalPreview = { matched, wouldChange: changed, conflicts: 0, conflictSamples: [] };
-  if (action.type !== "category") return out; // tags are additive: nothing to conflict with
+type LoadedTargets = ReturnType<typeof loadTargets>;
 
-  const names = new Map(
+function categoryNames(db: DbLike): Map<number, string> {
+  return new Map(
     db
       .select({ id: categories.id, name: categories.name })
       .from(categories)
       .all()
       .map((c) => [c.id, c.name]),
   );
-  for (const { target, at } of loadTargets(db)) {
+}
+
+/** Same numbers as a dry-run `applyRules` over just this condition, computed on already-loaded transactions. */
+function previewOn(
+  targets: LoadedTargets,
+  names: Map<number, string>,
+  cond: Condition,
+  action: RuleAction,
+  timeZone: string,
+): ProposalPreview {
+  const out: ProposalPreview = { matched: 0, wouldChange: 0, conflicts: 0, conflictSamples: [] };
+  for (const { target, at } of targets) {
     if (!conditionMatches(cond, target)) continue;
-    if (target.categoryId === null || target.categoryId === action.categoryId) continue;
-    out.conflicts++;
-    if (out.conflictSamples.length < 3) {
-      out.conflictSamples.push({
-        date: localDateString(at, timeZone),
-        payee: rulePayee(target),
-        category: names.get(target.categoryId) ?? "another category",
-      });
+    out.matched++;
+    if (action.type === "tag") {
+      // Tags are additive: nothing to conflict with.
+      if (!target.tagIds.includes(action.tagId)) out.wouldChange++;
+      continue;
+    }
+    if (target.categoryId === null) out.wouldChange++;
+    else if (target.categoryId !== action.categoryId) {
+      out.conflicts++;
+      if (out.conflictSamples.length < 3) {
+        out.conflictSamples.push({
+          date: localDateString(at, timeZone),
+          payee: rulePayee(target),
+          category: names.get(target.categoryId) ?? "another category",
+        });
+      }
     }
   }
   return out;
@@ -98,7 +113,15 @@ function previewCondition(db: DbLike, cond: Condition, action: RuleAction, timeZ
 
 /** Dry-run counts for just the new condition with this action, plus conflicts. */
 export function previewProposal(db: DbLike, payload: RuleProposalPayload, timeZone: string): ProposalPreview {
-  return previewCondition(db, conditionOf(payload.pattern), payload.action, timeZone);
+  return previewOn(loadTargets(db), categoryNames(db), conditionOf(payload.pattern), payload.action, timeZone);
+}
+
+/** Previews for many proposals with one scan of the transactions. */
+export function previewProposals(db: DbLike, payloads: RuleProposalPayload[], timeZone: string): ProposalPreview[] {
+  if (payloads.length === 0) return [];
+  const targets = loadTargets(db);
+  const names = categoryNames(db);
+  return payloads.map((p) => previewOn(targets, names, conditionOf(p.pattern), p.action, timeZone));
 }
 
 /**
@@ -111,16 +134,20 @@ export function choosePattern(
   action: RuleAction,
   suggestedContains: string | undefined,
   timeZone: string,
+  loaded?: { targets: LoadedTargets; names: Map<number, string> },
 ): { pattern: RuleProposalPayload["pattern"]; preview: ProposalPreview } {
+  const { targets, names } = loaded ?? { targets: loadTargets(db), names: categoryNames(db) };
   const equals = { op: "equals", value: group.payee } as const;
   const contains = suggestedContains?.trim();
   if (contains && payeeKey(contains).length >= MIN_CONTAINS_KEY_LENGTH) {
     const pattern = { op: "contains", value: contains } as const;
-    const preview = previewCondition(db, conditionOf(pattern), action, timeZone);
+    const preview = previewOn(targets, names, conditionOf(pattern), action, timeZone);
     if (preview.conflicts === 0) return { pattern, preview };
   }
-  return { pattern: equals, preview: previewCondition(db, conditionOf(equals), action, timeZone) };
+  return { pattern: equals, preview: previewOn(targets, names, conditionOf(equals), action, timeZone) };
 }
+
+export const loadPreviewData = (db: DbLike) => ({ targets: loadTargets(db), names: categoryNames(db) });
 
 export const categoryAction = (categoryId: number, categoryName: string): RuleAction => ({
   type: "category",

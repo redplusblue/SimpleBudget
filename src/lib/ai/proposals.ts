@@ -1,16 +1,17 @@
 import "server-only";
 import { and, count, desc, eq, inArray, ne } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
-import { aiProposals, categories, transactions } from "@/db/schema";
+import { aiProposals, categories, tags, transactions } from "@/db/schema";
 import { applyRules, createRule, listRules, updateRule } from "@/lib/rules/store";
 import {
   proposalPreview,
   ruleProposalPayload,
   type Confidence,
   type ProposalPreview,
+  type ProposalView,
   type RuleProposalPayload,
 } from "./proposal-types";
-import { candidateRule, previewProposal } from "./rule-target";
+import { candidateRule, previewProposal, previewProposals } from "./rule-target";
 
 export class ProposalError extends Error {
   constructor(
@@ -203,4 +204,54 @@ export function acceptAll(
     }
   }
   return out;
+}
+
+/** What the Rules page shows: pending items get a fresh preview and a check that their category/tag still exists. */
+export function listProposalViews(
+  db: DbLike,
+  opts: { kind?: Row["kind"]; status?: Row["status"] | Row["status"][] },
+  timeZone: string,
+): ProposalView[] {
+  const items = listProposals(db, opts);
+  const pending = items.filter((p) => p.row.status === "pending");
+  const fresh = new Map(
+    previewProposals(
+      db,
+      pending.map((p) => p.payload),
+      timeZone,
+    ).map((v, i) => [pending[i].row.id, v]),
+  );
+  const liveCategories = new Set(
+    db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(eq(categories.isArchived, false))
+      .all()
+      .map((c) => c.id),
+  );
+  const liveTags = new Set(
+    db
+      .select({ id: tags.id })
+      .from(tags)
+      .all()
+      .map((t) => t.id),
+  );
+  return items.map(({ row, payload, preview }) => {
+    const a = payload.action;
+    const valid = a.type === "category" ? liveCategories.has(a.categoryId) : liveTags.has(a.tagId);
+    return {
+      id: row.id,
+      kind: row.kind,
+      status: row.status,
+      confidence: row.confidence,
+      model: row.model,
+      createdAt: row.createdAt,
+      payload,
+      preview: fresh.get(row.id) ?? preview,
+      stillValid: valid,
+      ...(valid
+        ? {}
+        : { problem: `The ${a.type} "${a.type === "category" ? a.categoryName : a.tagName}" no longer exists.` }),
+    };
+  });
 }
