@@ -3,7 +3,16 @@ import { z } from "zod";
 import type { DbLike } from "@/db/open";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { deleteSetting, getSetting, setSetting } from "@/lib/settings";
-import { AI_FEATURES, FEATURE_LABELS, modelListSchema, type AiFeature, type ModelEntry } from "./models";
+import {
+  AI_FEATURES,
+  FEATURE_LABELS,
+  isOpenRouter,
+  modelListSchema,
+  profileSchema,
+  type AiFeature,
+  type AiProfile,
+  type ModelEntry,
+} from "./models";
 import { DEFAULT_BASE_URL } from "./types";
 
 const KEYS = {
@@ -16,6 +25,8 @@ const KEYS = {
   featureModels: "ai:feature_models",
   budget: "ai:monthly_budget_micros",
   userName: "ai:user_name",
+  webSearch: "ai:web_search",
+  profile: "ai:profile",
 } as const;
 
 /** What the settings page may see. The key itself never leaves the server. */
@@ -34,6 +45,9 @@ export interface AiConfig {
   monthlyBudgetMicros: number | null;
   /** First name used in insight cards; empty when not set. */
   userName: string;
+  /** Allow web research (off by default; only effective against OpenRouter). */
+  webSearch: boolean;
+  profile: AiProfile;
 }
 
 export class AiConfigError extends Error {
@@ -72,6 +86,11 @@ function readFeatureModels(db: DbLike): Partial<Record<AiFeature, string>> {
   return out;
 }
 
+function readProfile(db: DbLike): AiProfile {
+  const parsed = profileSchema.safeParse(readJsonSetting(db, KEYS.profile) ?? {});
+  return parsed.success ? parsed.data : profileSchema.parse({});
+}
+
 function readBudget(db: DbLike): number | null {
   const raw = getSetting(db, KEYS.budget);
   if (raw === undefined) return null;
@@ -88,6 +107,8 @@ export function getAiConfig(db: DbLike): AiConfig {
     featureModels: readFeatureModels(db),
     monthlyBudgetMicros: readBudget(db),
     userName: getSetting(db, KEYS.userName) ?? "",
+    webSearch: getSetting(db, KEYS.webSearch) === "1" && isOpenRouter(getSetting(db, KEYS.baseUrl) ?? DEFAULT_BASE_URL),
+    profile: readProfile(db),
     baseUrl: getSetting(db, KEYS.baseUrl) ?? DEFAULT_BASE_URL,
     includeBalances: getSetting(db, KEYS.includeBalances) === "1",
     hasKey: getSetting(db, KEYS.apiKey) !== undefined,
@@ -120,6 +141,9 @@ export const aiConfigPatchSchema = z
     monthlyBudgetMicros: z.number().int().min(0).max(10_000_000_000).nullable(),
     /** Empty clears it. */
     userName: z.string().trim().max(40),
+    webSearch: z.boolean(),
+    /** null resets it. */
+    profile: profileSchema.nullable(),
   })
   .partial()
   .strict();
@@ -131,13 +155,17 @@ export function updateAiConfig(db: DbLike, input: unknown): AiConfig {
   const patch = aiConfigPatchSchema.parse(input);
   const next = {
     ...getAiConfig(db),
-    ...Object.fromEntries(Object.entries(patch).filter(([k]) => !["apiKey", "models", "featureModels"].includes(k))),
+    ...Object.fromEntries(
+      Object.entries(patch).filter(([k]) => !["apiKey", "models", "featureModels", "profile"].includes(k)),
+    ),
   } as AiConfig;
   // The key is optional: a local server (Open WebUI, Ollama) may not need one. Hosted services like OpenRouter do.
   if (next.enabled) {
     if (!next.baseUrl) throw new AiConfigError("Enter the server address before turning AI on.");
     if (!next.model.trim()) throw new AiConfigError("Enter a model name before turning AI on.");
   }
+  if (patch.webSearch === true && !isOpenRouter(next.baseUrl))
+    throw new AiConfigError("Web research needs OpenRouter.");
   const list: ModelEntry[] | null | undefined = patch.models;
   const current = getAiConfig(db);
   const storedList = list === undefined ? readStoredModels(db) : (list ?? []);
@@ -167,6 +195,9 @@ export function updateAiConfig(db: DbLike, input: unknown): AiConfig {
       if (patch.userName === "") deleteSetting(tx, KEYS.userName);
       else setSetting(tx, KEYS.userName, patch.userName);
     }
+    if (patch.webSearch !== undefined) setSetting(tx, KEYS.webSearch, patch.webSearch ? "1" : "0");
+    if (patch.profile === null) deleteSetting(tx, KEYS.profile);
+    else if (patch.profile !== undefined) setSetting(tx, KEYS.profile, JSON.stringify(patch.profile));
     if (patch.apiKey === null) deleteSetting(tx, KEYS.apiKey);
     else if (patch.apiKey !== undefined) setSetting(tx, KEYS.apiKey, encrypt(patch.apiKey));
   });

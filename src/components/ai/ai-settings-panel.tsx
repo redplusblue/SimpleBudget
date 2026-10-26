@@ -13,7 +13,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { AI_FEATURES, FEATURE_LABELS, parseModelListJson, type AiFeature, type ModelEntry } from "@/lib/llm/models";
+import {
+  AGE_RANGES,
+  AI_FEATURES,
+  FEATURE_LABELS,
+  isOpenRouter,
+  parseModelListJson,
+  type AiFeature,
+  type ModelEntry,
+} from "@/lib/llm/models";
 import { ApiError, fetchJson, jsonBody } from "@/lib/fetch-json";
 import { AI_CONFIG_KEY, useAiConfig, type AiConfig } from "./ai-config";
 import { AI_USAGE_KEY } from "./ai-usage-card";
@@ -41,6 +49,10 @@ export function AiSettingsPanel() {
   const [featureModels, setFeatureModels] = useState<Partial<Record<AiFeature, string>>>({});
   const [budget, setBudget] = useState("");
   const [userName, setUserName] = useState("");
+  const [webSearch, setWebSearch] = useState(false);
+  const [ageRange, setAgeRange] = useState<string>(UNSET);
+  const [country, setCountry] = useState("US");
+  const [household, setHousehold] = useState("");
 
   useEffect(() => {
     if (!cfg) return;
@@ -51,6 +63,10 @@ export function AiSettingsPanel() {
     setModelsText(explicitList(cfg));
     setFeatureModels(cfg.featureModels);
     setUserName(cfg.userName);
+    setWebSearch(cfg.webSearch);
+    setAgeRange(cfg.profile.ageRange ?? UNSET);
+    setCountry(cfg.profile.country);
+    setHousehold(cfg.profile.householdSize ? String(cfg.profile.householdSize) : "");
     setBudget(cfg.monthlyBudgetMicros === null ? "" : String(cfg.monthlyBudgetMicros / 1_000_000));
   }, [cfg]);
 
@@ -77,6 +93,14 @@ export function AiSettingsPanel() {
           baseUrl,
           includeBalances,
           userName,
+          webSearch: webSearch && isOpenRouter(baseUrl),
+          profile: {
+            ...(ageRange !== UNSET ? { ageRange } : {}),
+            country: country.trim() || "US",
+            ...(Number.isInteger(Number(household)) && Number(household) > 0
+              ? { householdSize: Number(household) }
+              : {}),
+          },
           models: parsedModels.list,
           featureModels: Object.keys(featureModels).length > 0 ? featureModels : null,
           monthlyBudgetMicros: budgetNumber === null ? null : Math.round(budgetNumber * 1_000_000),
@@ -279,6 +303,75 @@ export function AiSettingsPanel() {
               Used to greet you in insight cards, e.g. &ldquo;Hey Sam, …&rdquo;.
             </p>
           </div>
+
+          <fieldset className="space-y-3 rounded-xl border border-border p-3">
+            <legend className="px-1 text-sm font-medium">Web research (optional)</legend>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label htmlFor="ai-web">Allow web research</Label>
+                <p className="text-xs text-muted-foreground">
+                  Lets the AI look up public statistics, like average savings by age. Off by default. Only generic
+                  questions are searched; your numbers are never sent to the search.
+                </p>
+                {!isOpenRouter(baseUrl) && (
+                  <p className="text-xs text-muted-foreground">Web research needs OpenRouter.</p>
+                )}
+              </div>
+              <Switch
+                id="ai-web"
+                checked={webSearch && isOpenRouter(baseUrl)}
+                disabled={!isOpenRouter(baseUrl)}
+                onCheckedChange={setWebSearch}
+              />
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1">
+                <Label htmlFor="ai-age" className="text-xs font-normal text-muted-foreground">
+                  Age range (optional)
+                </Label>
+                <Select value={ageRange} onValueChange={setAgeRange}>
+                  <SelectTrigger id="ai-age" className="h-11 w-full md:h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UNSET}>Not set</SelectItem>
+                    {AGE_RANGES.map((a) => (
+                      <SelectItem key={a} value={a}>
+                        {a}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ai-country" className="text-xs font-normal text-muted-foreground">
+                  Country
+                </Label>
+                <Input
+                  id="ai-country"
+                  value={country}
+                  maxLength={40}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="h-11 md:h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ai-household" className="text-xs font-normal text-muted-foreground">
+                  Household size (optional)
+                </Label>
+                <Input
+                  id="ai-household"
+                  inputMode="numeric"
+                  value={household}
+                  onChange={(e) => setHousehold(e.target.value)}
+                  className="h-11 md:h-9"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              These generic details only fill in the public-statistics questions. They are never sent with your numbers.
+            </p>
+          </fieldset>
 
           <div className="space-y-2">
             <Label htmlFor="ai-key">

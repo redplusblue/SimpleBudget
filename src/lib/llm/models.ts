@@ -69,3 +69,23 @@ export function parseModelListJson(text: string): ModelEntry[] {
   if (!parsed.success) throw new ModelListError(parsed.error.issues[0]?.message ?? "The model list isn't valid.");
   return parsed.data;
 }
+
+export const AGE_RANGES = ["18-29", "30-39", "40-49", "50-59", "60-69", "70+"] as const;
+
+/** Optional, generic details used only to fill web-research questions (never sent with your numbers). */
+export const profileSchema = z.object({
+  ageRange: z.enum(AGE_RANGES).optional(),
+  country: z.string().trim().min(2).max(40).default("US"),
+  householdSize: z.number().int().min(1).max(12).optional(),
+});
+export type AiProfile = z.infer<typeof profileSchema>;
+
+/** Web research goes through OpenRouter's web plugin, so it only works against OpenRouter. */
+export function isOpenRouter(baseUrl: string): boolean {
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase();
+    return host === "openrouter.ai" || host.endsWith(".openrouter.ai");
+  } catch {
+    return false;
+  }
+}
