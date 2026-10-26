@@ -93,6 +93,8 @@ Fields: description, payee, amount, account, direction. First matching rule wins
 ### Insights (`src/lib/insights/`)
 `generators.ts` has nine deterministic generators over a shared per-request data loader (`data.ts`); `getInsights` isolates failures and sorts warn → good → info. They run on the server only and are the only thing the AI layer may quote (allow-list by id prefix in `llm/context.ts`).
 
+`finance/trace.ts` builds the per-merchant trace (one query on `merchant_key`, math in TypeScript) for the drawer's Trace history; `ai/trace-model.ts` is its model-safe form.
+
 ### AI (`src/lib/llm/`): see [`AI.md`](AI.md). OpenAI-compatible chat completions only.
 
 ### Import/export, backup, notify

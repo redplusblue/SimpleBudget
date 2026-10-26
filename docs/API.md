@@ -62,6 +62,8 @@ Handlers are thin: logic and zod validation are in `src/lib/...`; read the match
 | GET | `/api/settings/ai` | The AI settings. The API key is write-only: responses say whether one is saved, never what it is. |
 | PUT | `/api/settings/ai` | Update AI settings: `{ enabled?, baseUrl?, model?, includeBalances?, apiKey? (string saves, null removes), models? (parsed `[{id,label?,inputPerMTok?,outputPerMTok?}]`, null clears), featureModels? (`{ feature: modelId }`, null clears), monthlyBudgetMicros? (null = no cap, 0 = pause AI) }`. Feature defaults and the default model must be in the model list. Turning on needs a server address and a model. |
 | GET | `/api/ai/usage` | This month's AI spend vs budget, per-feature totals and the last 20 runs (no prompt text). |
+| GET | `/api/transactions/[id]/trace` | `{ trace }`: the merchant's computed history for this transaction (stats, position, cadence, price changes, 24 months, related refunds/duplicates/transfer, similar merchants, categories, covering rule). No AI. 404 when missing. |
+| POST | `/api/transactions/[id]/trace/explain` | `{ model?, question? }` streams NDJSON `text`, `proposal`, then `done` or `error`. Sends statistics only; budget-checked; manual. |
 | GET / POST | `/api/ai/insights` | `GET ?limit=` saved cards (pinned first, dismissed hidden). `POST { lens?, model?, count? }` generates a batch from computed facts (no facts = no model call; budget-checked). |
 | PATCH | `/api/ai/insights/[id]` | `{ pinned?, dismissed? }`. |
 | GET / POST | `/api/ai/memories` | List / add a memory `{ text }` (3-300 chars, max 50). Sent with every AI request. |

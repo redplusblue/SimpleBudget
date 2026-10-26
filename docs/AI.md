@@ -91,6 +91,13 @@ The **Assistant** page (`/assistant`, three tabs) is the main AI surface. Nothin
 - **Stable prompt prefix:** the system prompt is `[base rules][lens][tool guide][proposal rules][memories]` and only then today's date and data, so providers that cache prompt prefixes can reuse it.
 - **Memory** instead of repeating yourself, **rolling summaries** (past 24 messages everything but the last 12 is folded into one summary), **stats first** (compact computed reports and tools, never raw transaction lists), and **no vector database**: the data is structured and queried exactly.
 
+## Trace and Explain
+Every transaction's drawer has a **Trace history** button. It is computed on your server, costs nothing and works with AI off: how many times you've paid this merchant and since when, totals, last 12 months, typical charge and range, where this charge sits (larger than N% of charges here, the largest, the first), whether it repeats and when it is next expected, lasting price changes (a one-off blip isn't one), a 24-month chart, refunds within 60 days after, possible duplicates (same amount within 48 hours), the other side of a transfer, similar merchant names, how the merchant's rows are categorized (split parts counted) and which rule covers it. Merchants are grouped by `merchant_key`; a transaction with no key traces only itself.
+
+With AI on, **Explain with AI** (optional question, model picker) sends the *statistics*, not rows: formatted totals, dates, counts, cadence, price changes, the last 12 months, refunds and duplicates as date and amount, similar merchant *names* and category counts. No ids, account names, raw bank text, notes or memos, and a rule is reduced to "a rule covers this merchant". The model may call merchant history, search or recurring for more, and may propose a rule or memory (shown with Apply / Dismiss). The `get_merchant_trace` tool gives chat and MCP the same model-safe trace.
+
+**Similar names are a heuristic:** one key extends the other (shorter at least 5 characters, e.g. `amazon` / `amazonmktplace`) or the first words match (4+ letters). `amzn` is not recognized as `amazon`; that is a known limit.
+
 ## Where the code is
 | File | Role |
 | --- | --- |
@@ -98,6 +105,7 @@ The **Assistant** page (`/assistant`, three tabs) is the main AI surface. Nothin
 | `src/lib/llm/openai-compatible.ts` | the only client: SSE streaming, tool loop (≤ 6 rounds), error mapping, `max_tokens` fallback, tool-less retry |
 | `src/lib/llm/config.ts` | settings (`ai:*`), encrypted key, validation, `modelFor` / `isAllowedModel` |
 | `src/lib/llm/models.ts` | client-safe: `AiFeature`s, model-list schema and parser |
+| `src/lib/finance/trace.ts`, `src/lib/ai/trace-model.ts`, `src/lib/ai/trace-explain.ts` | the computed trace, its model-safe form, Explain with AI |
 | `src/lib/ai/` | assistant: `facts.ts`, `lenses.ts`, `memory.ts`, `propose-tools.ts`, `insight-cards.ts`, `assistant.ts` (chat engine); rule suggestions: `rule-suggestions.ts` (the job), `tag-suggestions.ts`, `rule-target.ts` (extend-or-new, previews), `proposals.ts` (store, accept, accept-all), `rule-runner.ts` / `rule-settings.ts` (schedule) |
 | `src/lib/llm/runs.ts` | `trackRuns` (writes `ai_runs`), monthly spend, budget check, usage report |
 | `src/lib/llm/context.ts` | the allow-listed data the model may see |

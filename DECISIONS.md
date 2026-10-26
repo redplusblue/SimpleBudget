@@ -213,6 +213,14 @@
 - **The old Ask box and monthly summary stay** for now (their tests and tool list are unchanged); the Insights page links to the Assistant for saved conversations. New read tools (`get_facts`, `get_goals`) go to the Assistant and MCP, not the Ask box.
 - `ai_proposals.thread_id` stays a plain integer (no FK without rebuilding the table); deleting a thread nulls it in code.
 
+### Trace (Phase 3)
+
+- **Stats first.** The app computes the merchant's history itself; Explain sends those statistics rather than rows, and the model calls tools only for what they don't answer. Trace itself works with AI off.
+- **The model-safe trace is its own function** (`traceForModel`): formatted strings only, no ids, no account, no notes/memos/raw bank text, and a rule reduced to a yes/no. A test seeds forbidden values and searches the request for them.
+- **Price steps use a wide band (±35% of the merchant's typical charge) and need to persist**; cadence uses ±10% of this charge. A one-off blip is not a price change. A step on the latest charge counts (nothing later can confirm it), like `recurring.ts`.
+- **Similar merchants are heuristic** (key prefix with a 5-character minimum, or equal first words of 4+ letters). Known limit: abbreviations such as `amzn`.
+- **The `get_merchant_trace` tool stays out of the original Ask box** (its tool list is pinned by a test) but is available to the Assistant and MCP.
+
 ## Documentation and handoff
 
 `AGENTS.md` (fast path for agents), `CLAUDE.md` (points to it) and `docs/` (architecture, API table, development, operations, AI, Actual migration) were written so that a new agent can continue without the original conversation. Keep them current: when you change behaviour, update the doc that describes it in the same commit.
