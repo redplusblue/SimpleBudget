@@ -33,7 +33,7 @@ gives you a fast, mobile-friendly place to see where your money goes.
 You need Docker with Compose, and a SimpleFIN account (see [Getting a SimpleFIN token](#getting-a-simplefin-token)).
 
 ```bash
-git clone https://github.com/<you>/SimpleBudget.git
+git clone https://github.com/redplusblue/SimpleBudget.git
 cd SimpleBudget
 
 # 1. A long random secret. It encrypts your bank connection and signs your session, so keep it safe.
