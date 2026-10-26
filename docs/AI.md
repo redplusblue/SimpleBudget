@@ -68,6 +68,29 @@ The recommended way to let AI categorize: it proposes **rules**, never categorie
 - **Tag rules** (off by default, same card): existing tags only, for merchants seen at least twice in the last 180 days; rules are named `AI tag · <Tag>`. They run after categories and share the per-run cap and budget.
 `pnpm ai:categorize` remains for one-off bulk work.
 
+## Assistant
+The **Assistant** page (`/assistant`, three tabs) is the main AI surface. Nothing in it runs until you press a button.
+- **Insights:** *Generate* writes 3-5 short cards. Code computes **facts** (the existing insights, merchant growth, subscriptions total, bills due in 7 days, savings rate, targets over, goals, rules coverage, manual accounts not updated); the model only picks and phrases them. A card citing no valid fact is dropped, and each card's link comes from the cited fact, never from model output. With no facts there is no model call.
+- **Chat:** saved conversations focused by a **lens**, each with its own instructions and tool subset:
+
+| Lens | Focus | Can propose |
+| --- | --- | --- |
+| General | anything; all read tools | rule, memory, target |
+| Spending | categories, merchants, changes | target, memory |
+| Subscriptions | recurring charges, price rises | memory |
+| Cash flow | income vs spending, bills, savings rate | memory |
+| Accounts | manual accounts, utilization, low balances | memory |
+| Goals | progress and pace | memory, target |
+| Cleanup | uncategorized, duplicates, rules | rule, memory |
+
+- **Proposals, not writes:** the assistant's only write tools (`propose_rule`, `propose_memory`, `propose_target`) create pending proposals shown as cards with Apply / Dismiss. Applying goes through the normal code (rules, memories, targets). They are never offered to the MCP server, which stays read-only.
+- **Memory:** short facts you write or approve (3-300 characters, at most 50, 2,000 characters in total are sent). They are sent with every AI request.
+- **What is sent:** the same privacy rules as everywhere else. Facts about accounts and goals are *sensitive*: unless you ticked "share account names and balances" the model gets a redacted wording ("One of your manual accounts hasn't been updated in 84 days"). Memories and your first name (optional, Settings → AI) are included.
+
+### Saving tokens
+- **Stable prompt prefix:** the system prompt is `[base rules][lens][tool guide][proposal rules][memories]` and only then today's date and data, so providers that cache prompt prefixes can reuse it.
+- **Memory** instead of repeating yourself, **rolling summaries** (past 24 messages everything but the last 12 is folded into one summary), **stats first** (compact computed reports and tools, never raw transaction lists), and **no vector database**: the data is structured and queried exactly.
+
 ## Where the code is
 | File | Role |
 | --- | --- |
@@ -75,7 +98,7 @@ The recommended way to let AI categorize: it proposes **rules**, never categorie
 | `src/lib/llm/openai-compatible.ts` | the only client: SSE streaming, tool loop (≤ 6 rounds), error mapping, `max_tokens` fallback, tool-less retry |
 | `src/lib/llm/config.ts` | settings (`ai:*`), encrypted key, validation, `modelFor` / `isAllowedModel` |
 | `src/lib/llm/models.ts` | client-safe: `AiFeature`s, model-list schema and parser |
-| `src/lib/ai/` | rule suggestions: `rule-suggestions.ts` (the job), `tag-suggestions.ts`, `rule-target.ts` (extend-or-new, previews), `proposals.ts` (store, accept, accept-all), `rule-runner.ts` / `rule-settings.ts` (schedule) |
+| `src/lib/ai/` | assistant: `facts.ts`, `lenses.ts`, `memory.ts`, `propose-tools.ts`, `insight-cards.ts`, `assistant.ts` (chat engine); rule suggestions: `rule-suggestions.ts` (the job), `tag-suggestions.ts`, `rule-target.ts` (extend-or-new, previews), `proposals.ts` (store, accept, accept-all), `rule-runner.ts` / `rule-settings.ts` (schedule) |
 | `src/lib/llm/runs.ts` | `trackRuns` (writes `ai_runs`), monthly spend, budget check, usage report |
 | `src/lib/llm/context.ts` | the allow-listed data the model may see |
 | `src/lib/llm/tools.ts` | the tools |

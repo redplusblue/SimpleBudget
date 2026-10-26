@@ -204,6 +204,15 @@
 - **Previews reuse one scan of the transactions** (in-memory, same numbers as a dry-run `applyRules`) so listing 200 suggestions doesn't scan the table 200 times.
 - Tag suggestions group merchants in code rather than SQL (about 180 days of rows), and share the per-run merchant cap with categories.
 
+### The Assistant (Phase 2)
+
+- **Facts are computed; links are attached by the server.** The model picks and phrases facts, cards cite fact ids, and the link comes from the fact. A card citing no known fact is dropped. This keeps invented numbers and model-chosen URLs out.
+- **Sensitive facts have a redacted wording** (no account name or balance) that is what the model sees unless the balances opt-in is on; the owner still gets the real link.
+- **Propose tools are never in `LLM_TOOLS` or MCP.** The MCP server stays read-only; the assistant can only create pending proposals, and applying them uses the normal code paths (rules, memories, targets).
+- **Rolling summary after 24 messages** (everything but the last 12 folded into one short summary). Long enough that short chats never pay for a summary call, short enough to stop prompts growing without bound.
+- **The old Ask box and monthly summary stay** for now (their tests and tool list are unchanged); the Insights page links to the Assistant for saved conversations. New read tools (`get_facts`, `get_goals`) go to the Assistant and MCP, not the Ask box.
+- `ai_proposals.thread_id` stays a plain integer (no FK without rebuilding the table); deleting a thread nulls it in code.
+
 ## Documentation and handoff
 
 `AGENTS.md` (fast path for agents), `CLAUDE.md` (points to it) and `docs/` (architecture, API table, development, operations, AI, Actual migration) were written so that a new agent can continue without the original conversation. Keep them current: when you change behaviour, update the doc that describes it in the same commit.

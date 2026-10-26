@@ -49,10 +49,11 @@ Small, verbose commits (what changed *and why*), one concern each; end the messa
 | add a table/column | edit `src/db/schema.ts`, `pnpm db:generate`, commit the SQL in `drizzle/` |
 | add an insight | `src/lib/insights/generators.ts` (+ allow-list in `src/lib/llm/context.ts` if the AI may see it) |
 | touch AI | `src/lib/llm/` (tools in `tools.ts`, shared reports in `analysis.ts`), `src/lib/mcp/`, `docs/AI.md` |
+| change the assistant (chat, lenses, facts, memory, proposals) | `src/lib/ai/` (`assistant.ts`, `lenses.ts`, `facts.ts`, `propose-tools.ts`), `src/components/assistant/` |
 | import/export | `src/lib/import/`, `src/lib/export/` |
 
 ## Status and known gaps
-- Done: Phases 1-12 of `PLAN.md`. AI enhancement plan (`docs/plans/ai`): Phases 0-1 done (model list, per-feature models, `ai_runs` cost tracking, monthly budget; AI rule suggestions with accept/dismiss, schedule and tag rules). Test suites: ~700 unit tests, ~150 e2e tests.
+- Done: Phases 1-12 of `PLAN.md`. AI enhancement plan (`docs/plans/ai`): Phases 0-2 done (model list, per-feature models, `ai_runs` cost tracking, monthly budget; AI rule suggestions with accept/dismiss, schedule and tag rules; the Assistant page with lenses, insight cards, saved chats, memory and proposals). Test suites: ~700 unit tests, ~150 e2e tests.
 - Lighthouse mobile (demo data): Dashboard 85-88, Accounts ~92, Insights ~83, Spending ~79, **Transactions ~66** (first rows render client-side; fixing needs time-zone-safe day headers for SSR).
 - Multi-currency conversion covers balances and net worth only; spending analytics assume one currency (`DECISIONS.md`, Phase 12).
 - One known e2e flake under full-suite load: `taxonomy.spec.ts` "reordering with the move buttons persists" (mobile). It passes alone.

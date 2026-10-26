@@ -62,8 +62,15 @@ Handlers are thin: logic and zod validation are in `src/lib/...`; read the match
 | GET | `/api/settings/ai` | The AI settings. The API key is write-only: responses say whether one is saved, never what it is. |
 | PUT | `/api/settings/ai` | Update AI settings: `{ enabled?, baseUrl?, model?, includeBalances?, apiKey? (string saves, null removes), models? (parsed `[{id,label?,inputPerMTok?,outputPerMTok?}]`, null clears), featureModels? (`{ feature: modelId }`, null clears), monthlyBudgetMicros? (null = no cap, 0 = pause AI) }`. Feature defaults and the default model must be in the model list. Turning on needs a server address and a model. |
 | GET | `/api/ai/usage` | This month's AI spend vs budget, per-feature totals and the last 20 runs (no prompt text). |
+| GET / POST | `/api/ai/insights` | `GET ?limit=` saved cards (pinned first, dismissed hidden). `POST { lens?, model?, count? }` generates a batch from computed facts (no facts = no model call; budget-checked). |
+| PATCH | `/api/ai/insights/[id]` | `{ pinned?, dismissed? }`. |
+| GET / POST | `/api/ai/memories` | List / add a memory `{ text }` (3-300 chars, max 50). Sent with every AI request. |
+| PATCH / DELETE | `/api/ai/memories/[id]` | `{ text?, enabled? }` / remove. |
+| POST | `/api/ai/chat` | `{ threadId?, lens, text, model? }` streams NDJSON events: `thread`, `text`, `proposal`, then `done` or `error`. |
+| GET | `/api/ai/threads` | Conversations, newest first (max 100). |
+| GET / PATCH / DELETE | `/api/ai/threads/[id]` | Messages plus the proposals made in the thread / `{ title }` / delete. |
 | GET | `/api/ai/proposals` | `?kind=rule&status=pending` (defaults; `status=dismissed` also returns `no_match`). `{ proposals }` with fresh previews; `stillValid: false` + `problem` when the category/tag is gone. |
-| POST | `/api/ai/proposals/[id]/accept` | `{ categoryId?, applyExisting? (default true) }` creates or extends the rule, optionally categorizing existing empty matches. `{ ruleId, ruleName, mode, categorized }`. 409 if already handled. |
+| POST | `/api/ai/proposals/[id]/accept` | Applies a proposal by kind. Rules: `{ categoryId?, applyExisting? (default true) }` creates or extends the rule, optionally categorizing existing empty matches (`{ kind, ruleId, ruleName, mode, categorized }`). Memories: `{ kind, memoryId }`. Targets: `{ kind, targetId }`. 409 if already handled. |
 | POST | `/api/ai/proposals/[id]/dismiss` | Dismisses a pending suggestion. |
 | DELETE | `/api/ai/proposals/[id]` | Forgets a dismissed/no_match suggestion so the merchant can be asked again. |
 | POST | `/api/ai/proposals/accept-all` | `{ minConfidence: "high"\|"medium", applyExisting? }` accepts non-conflicting pending suggestions. `{ accepted, skipped, categorized }`. |
