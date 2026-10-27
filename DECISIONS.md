@@ -231,6 +231,15 @@
 - **AI actions skip rather than fail** when AI is off or the budget is used up, and say why. Missed schedules are not caught up.
 - Messages say "a merchant" / "an account" unless the owner opts in per automation, mirroring the alerts' details option.
 
+### Web research and plain-English search (Phase 5)
+
+- **Web research is built but off, and OpenRouter-only** (its web plugin). The switch is disabled elsewhere and the server refuses it, so nothing can make a web request by accident.
+- **Two steps.** A fixed, generic research question (template + optional generic profile) is the only thing that touches the web; its results become facts for the normal request, which sees the owner's aggregated numbers but makes no web call. Personal data never reaches a search engine.
+- **Cached 30 days** (keyed by topic and profile) in `insights_cache`: the same statistic is fetched at most once a month, which is the real token saver.
+- **Links only from provider annotations**, `https:` only. Model-written URLs are never rendered as links; chat gets a plain-text sources note, cards get links (`ai_insights.sources_json`).
+- **Plain-English search sends only the question and category/tag names**, never transactions. Its result goes through the normal filter handlers so it is visible and editable; unknown names are dropped and reported, not guessed.
+- The "later ideas" in the plan (receipt photos, HTTP MCP, budget suggestions, close-the-books review, embeddings) are not started: they need the owner's say-so first.
+
 ## Documentation and handoff
 
 `AGENTS.md` (fast path for agents), `CLAUDE.md` (points to it) and `docs/` (architecture, API table, development, operations, AI, Actual migration) were written so that a new agent can continue without the original conversation. Keep them current: when you change behaviour, update the doc that describes it in the same commit.

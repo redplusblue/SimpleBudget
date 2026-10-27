@@ -61,7 +61,7 @@ and pass it to the client component as `initialData`; the client takes over once
 | `insights_cache` | the saved AI monthly summary per month |
 | `ai_threads`, `ai_messages` | saved assistant conversations (with a rolling summary) |
 | `ai_memories` | facts the owner wrote or approved, sent with every AI request |
-| `ai_insights` | generated insight cards (batch, cited fact ids, link, pinned/dismissed) |
+| `ai_insights` | generated insight cards (batch, cited fact ids, link, https sources for public data, pinned/dismissed) |
 | `notify_destinations` | where automations send (ntfy / webhook / Discord); addresses and tokens encrypted |
 | `automations`, `automation_runs` | trigger + action + destination as validated JSON, and each automation's last 50 runs |
 | `ai_proposals` | things the AI suggests (rule suggestions now), with status `pending`/`accepted`/`dismissed`/`no_match`/`stale`, payload and preview JSON |

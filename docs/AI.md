@@ -106,6 +106,17 @@ Settings → Automations: **trigger → action → destination**. This is the on
 - **Cost:** AI actions use the model you pick (default: the "automations" model), are recorded in the usage card, and are **skipped with a reason** ("monthly AI budget reached", "AI is off") rather than failing. Message and fact actions cost nothing.
 - Automations never create proposals, so nothing they do changes your data.
 
+## Web research (optional, off)
+Off by default and invisible until you turn it on in Settings → AI ("Allow web research"). It needs **OpenRouter** (its web plugin); against any other server the switch is disabled and the API refuses it. Nothing in the app makes a web request while it is off.
+- **Two steps, so your data never reaches a search engine.** (1) *Research*: the app asks a **fixed, generic** question built from a template and the optional generic profile (age range, country, household size), e.g. "the median retirement account balance for people aged 30-39 in US". No amounts, merchants, memories, names or accounts are in that request. (2) *Compare*: the results become facts (`benchmark:<topic>`) in the normal insight-card or chat request, which sees your aggregated numbers but makes no web call.
+- Where it appears: a **Compare with public data** checkbox next to *Generate* (Assistant → Insights) and in the chat composer, only while the setting is on.
+- **Cached for 30 days** per topic and profile (in `insights_cache`), so the same statistic is fetched at most once a month. Research counts toward the monthly budget (feature "web") and is skipped when it is used up.
+- **Sources:** links come only from the provider's `url_citation` annotations, only `https:`, with `rel="noopener noreferrer nofollow"`. Insight cards show them as "Source: <title> (<domain>)"; chat answers get a plain-text "Sources:" line. Links in the model's own text are never used.
+- Topics per lens: Cash flow (average savings rate, emergency fund), Goals (median retirement balance by age), Spending (average household spending by category), Accounts (average credit utilization).
+
+## Plain-English transaction search
+On Transactions, when AI is on, the sparkles toggle next to the search box lets you type something like "coffee over $5 since March". Only that question, today's date and the **names** of your categories and tags go to the model (the "search" default model; no picker); no transactions, accounts or notes. The reply is validated (unknown category or tag names are dropped and reported, dollars become cents) and applied as ordinary filters, so you can see and edit exactly what was understood. Identical questions are answered from a small in-memory per-day cache.
+
 ## Where the code is
 | File | Role |
 | --- | --- |
@@ -114,6 +125,7 @@ Settings → Automations: **trigger → action → destination**. This is the on
 | `src/lib/llm/config.ts` | settings (`ai:*`), encrypted key, validation, `modelFor` / `isAllowedModel` |
 | `src/lib/llm/models.ts` | client-safe: `AiFeature`s, model-list schema and parser |
 | `src/lib/finance/trace.ts`, `src/lib/ai/trace-model.ts`, `src/lib/ai/trace-explain.ts` | the computed trace, its model-safe form, Explain with AI |
+| `src/lib/ai/web-research.ts`, `src/lib/ai/nl-search.ts` | web benchmarks (generic questions, cached) and plain-English search |
 | `src/lib/automations/` | destinations, store and validation (`types.ts`), `run.ts` (build, send, record), `fire.ts` (after-sync, scheduled and manual triggers), `scheduler.ts` (cron timers) |
 | `src/lib/ai/` | assistant: `facts.ts`, `lenses.ts`, `memory.ts`, `propose-tools.ts`, `insight-cards.ts`, `assistant.ts` (chat engine); rule suggestions: `rule-suggestions.ts` (the job), `tag-suggestions.ts`, `rule-target.ts` (extend-or-new, previews), `proposals.ts` (store, accept, accept-all), `rule-runner.ts` / `rule-settings.ts` (schedule) |
 | `src/lib/llm/runs.ts` | `trackRuns` (writes `ai_runs`), monthly spend, budget check, usage report |
