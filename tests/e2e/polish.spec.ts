@@ -154,3 +154,14 @@ test("hardening: security headers, cross-site POSTs refused, backups from About"
     /simplebudget-\d{8}-\d{6}\.sqlite/,
   );
 });
+
+test("the top-bar search opens the command palette and jumps to a page", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await login(page);
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByPlaceholder("Jump to a page…").fill("spend");
+  await page.getByRole("option", { name: /Spending/ }).click();
+  await expect(page).toHaveURL(/\/spending/);
+  expect(errors).toEqual([]);
+});
