@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { chat, getThreadOrThrow, MAX_TEXT_CHARS } from "@/lib/ai/assistant";
 import { LENS_IDS } from "@/lib/ai/lenses";
+import { getBenchmarks } from "@/lib/ai/web-research";
 import { errorResponse, readJson } from "@/lib/api-errors";
 import { requireApiAuth } from "@/lib/auth";
 import { getEnv } from "@/lib/env";
@@ -18,6 +19,8 @@ const body = z.object({
   lens: z.enum(LENS_IDS).default("general"),
   text: z.string().trim().min(1, "Write a message").max(MAX_TEXT_CHARS),
   model: z.string().trim().min(1).max(120).optional(),
+  /** Compare with public data (only does anything while web research is switched on in settings). */
+  web: z.boolean().optional(),
 });
 
 /**
@@ -55,6 +58,7 @@ export async function POST(request: Request) {
     async start(controller) {
       const send = (event: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       try {
+        const benchmarks = input.web ? await getBenchmarks({ db, cfg: config, now, timeZone }, input.lens) : [];
         await chat(
           {
             db,
@@ -65,7 +69,7 @@ export async function POST(request: Request) {
             timeZone,
             includeBalances: config.includeBalances,
           },
-          { threadId: input.threadId, lens: input.lens, text: input.text },
+          { threadId: input.threadId, lens: input.lens, text: input.text, benchmarks },
           send,
         );
       } catch (e) {

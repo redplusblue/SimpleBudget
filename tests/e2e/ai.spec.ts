@@ -453,6 +453,34 @@ test("an AI insight automation runs now, sends the card, and shows up in the usa
   await page.request.delete(`/api/automations/destinations/${destinationId}`);
 });
 
+test("web research is invisible while off, and can't be enabled away from OpenRouter", async ({ page }) => {
+  await login(page);
+  await page.request.put("/api/settings/ai", {
+    data: { enabled: true, baseUrl: `http://127.0.0.1:${MOCK_PORT}/v1`, model: "mock-model" },
+  });
+  requests = [];
+  await page.goto("/assistant");
+  await expect(page.getByRole("button", { name: "Generate" })).toBeVisible();
+  await expect(page.getByLabel("Compare with public data")).toHaveCount(0);
+  await page.getByRole("tab", { name: "Chat" }).click();
+  await expect(page.getByLabel("Message the assistant")).toBeVisible();
+  await expect(page.getByLabel("Compare with public data")).toHaveCount(0);
+
+  const refused = await page.request.put("/api/settings/ai", { data: { webSearch: true } });
+  expect(refused.status()).toBe(400);
+  expect((await refused.json()).message).toBe("Web research needs OpenRouter.");
+  expect((await (await page.request.get("/api/settings/ai")).json()).config.webSearch).toBe(false);
+
+  // A request that asks for public data is ignored while the setting is off: no research call reaches the provider.
+  const cards = await page.request.post("/api/ai/insights", { data: { lens: "cashflow", web: true } });
+  expect(cards.status()).toBe(200);
+  expect(JSON.stringify(requests.map((r) => r.body))).not.toContain("Find the most recent published statistics");
+
+  await page.goto("/settings/ai");
+  await expect(page.getByLabel("Allow web research")).toBeDisabled();
+  await expect(page.getByText("Web research needs OpenRouter.").first()).toBeVisible();
+});
+
 test("the AI settings and panel fit a phone, and AI can be turned off again", async ({ page }) => {
   await login(page);
   await page.setViewportSize({ width: 390, height: 844 });

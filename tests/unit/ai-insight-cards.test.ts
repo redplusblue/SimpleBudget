@@ -134,3 +134,36 @@ describe("card state and the name setting", () => {
     expect(getAiConfig(db).userName).toBe("");
   });
 });
+
+describe("public data in cards", () => {
+  it("cards citing a benchmark keep its https sources, and the card request carries the benchmark but no web call", async () => {
+    const { benchmarkFacts } = await import("@/lib/ai/web-research");
+    const db = freshDb();
+    const facts = benchmarkFacts([
+      {
+        id: "savings-rate",
+        label: "Average personal savings rate",
+        value: "4.6%",
+        year: 2025,
+        source: "BEA",
+        sources: [{ url: "https://www.bea.gov/data", title: "BEA data" }, { url: "http://insecure.example" }],
+      },
+    ]);
+    const { llm, requests } = fake(() =>
+      JSON.stringify([
+        { facts: ["benchmark:savings-rate"], severity: "info", title: "How you compare", body: "The average is 4.6%." },
+      ]),
+    );
+    const cards = await generateInsightCards(env(db, llm), { lens: "cashflow", extraFacts: facts });
+    expect(requests[0].user).toContain("benchmark:savings-rate");
+    expect(requests[0].extraBody).toBeUndefined(); // the card request makes no web call
+    expect(cards[0].sources).toEqual([{ url: "https://www.bea.gov/data", title: "BEA data" }]);
+    expect(listInsightCards(db)[0].sources).toEqual(cards[0].sources);
+  });
+
+  it("makes no model call when the only facts would be absent", async () => {
+    const { llm, requests } = fake(() => "[]");
+    expect(await generateInsightCards(env(freshDb(), llm), { lens: "cashflow", extraFacts: [] })).toEqual([]);
+    expect(requests).toHaveLength(0);
+  });
+});

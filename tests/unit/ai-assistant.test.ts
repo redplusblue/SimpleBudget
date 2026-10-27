@@ -210,3 +210,46 @@ describe("threads", () => {
     expect(() => getThread(db, id, "UTC")).toThrow(AssistantError);
   });
 });
+
+describe("public data in chat", () => {
+  const bench = [
+    {
+      id: "savings-rate" as const,
+      label: "Average personal savings rate",
+      value: "4.6%",
+      year: 2025,
+      source: "BEA",
+      sources: [{ url: "https://www.bea.gov/data", title: "BEA data" }],
+    },
+  ];
+
+  it("adds the benchmarks to the prompt, with a plain-text sources note, and no web request", async () => {
+    const db = setup();
+    const { llm, requests } = fake(() => "Your rate is above average.");
+    const events = await run(db, llm, { text: "How do I compare?" }, {});
+    expect(requests[0].system).not.toContain("Public data looked up");
+    const withBench: ChatEvent[] = [];
+    await chat(env(db, llm), { lens: "cashflow", text: "How do I compare?", benchmarks: bench }, (e) =>
+      withBench.push(e),
+    );
+    const req = requests[1];
+    expect(req.system).toContain("Average personal savings rate: 4.6% (BEA, 2025)");
+    expect(req.extraBody).toBeUndefined();
+    const text = withBench
+      .filter((e) => e.type === "text")
+      .map((e) => (e as { text: string }).text)
+      .join("");
+    expect(text).toContain("Public data from BEA. Sources: BEA data (bea.gov).");
+    expect(db.select().from(aiMessages).all().at(-1)!.content).toContain("Sources: BEA data (bea.gov)");
+    expect(events.length).toBeGreaterThan(0);
+  });
+
+  it("keeps the stable prompt prefix when benchmarks are present", async () => {
+    const db = setup();
+    const { llm, requests } = fake();
+    await chat(env(db, llm), { lens: "cashflow", text: "a" }, () => {});
+    await chat(env(db, llm), { lens: "cashflow", text: "b", benchmarks: bench }, () => {});
+    const stable = (s: string) => s.split("Today is")[0];
+    expect(stable(requests[0].system)).toBe(stable(requests[1].system));
+  });
+});

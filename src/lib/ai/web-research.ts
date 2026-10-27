@@ -244,3 +244,21 @@ export function benchmarkFacts(benchmarks: Benchmark[]): Fact[] {
     sources: b.sources,
   }));
 }
+
+/** Plain text (no links) naming where public data came from, appended to a chat answer that was given benchmarks. */
+export function sourcesNote(benchmarks: Benchmark[]): string {
+  if (benchmarks.length === 0) return "";
+  const cited = safeCitations(benchmarks.flatMap((b) => b.sources)).map((c) => {
+    const host = new URL(c.url).hostname.replace(/^www\./, "");
+    return c.title ? `${c.title} (${host})` : host;
+  });
+  const publishers = [...new Set(benchmarks.map((b) => b.source))];
+  return `\n\nPublic data from ${publishers.join(", ")}.${cited.length ? ` Sources: ${cited.join("; ")}.` : ""}`;
+}
+
+/** The benchmark lines added to a chat prompt's data section. */
+export function benchmarkPromptBlock(benchmarks: Benchmark[]): string {
+  if (benchmarks.length === 0) return "";
+  const lines = benchmarks.map((b) => `- ${b.label}: ${b.value} (${b.source}${b.year ? `, ${b.year}` : ""})`);
+  return `\nPublic data looked up for this question (generic statistics, not about the owner; name the source when you use it):\n${lines.join("\n")}`;
+}

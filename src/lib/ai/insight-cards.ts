@@ -6,8 +6,9 @@ import { currentMonth } from "@/lib/finance/dates";
 import { buildAiContext } from "@/lib/llm/context";
 import { BASE_SYSTEM } from "@/lib/llm/narrative";
 import type { LlmClient } from "@/lib/llm/types";
-import { collectFacts, factsForLens, factsForModel } from "./facts";
+import { collectFacts, factsForLens, factsForModel, type Fact } from "./facts";
 import type { InsightCardView } from "./insight-types";
+import { safeCitations } from "./web-research";
 import type { LensId } from "./lenses";
 import { memoryPromptBlock } from "./memory";
 
@@ -69,6 +70,14 @@ export function parseCards(text: string, knownIds: Set<string>, count: number): 
   return out;
 }
 
+function sourcesOf(json: string | null): InsightCardView["sources"] {
+  try {
+    return json ? safeCitations(JSON.parse(json) as Array<{ url: string; title?: string }>) : [];
+  } catch {
+    return [];
+  }
+}
+
 const toView = (r: typeof aiInsights.$inferSelect): InsightCardView => ({
   id: r.id,
   batch: r.batch,
@@ -78,6 +87,7 @@ const toView = (r: typeof aiInsights.$inferSelect): InsightCardView => ({
   title: r.title,
   body: r.body,
   link: r.link,
+  sources: sourcesOf(r.sourcesJson),
   pinned: r.pinned,
   createdAt: r.createdAt,
 });
@@ -85,14 +95,18 @@ const toView = (r: typeof aiInsights.$inferSelect): InsightCardView => ({
 /** Generates and stores a batch of cards. No facts means no model call and an empty result. */
 export async function generateInsightCards(
   env: CardEnv,
-  opts: { lens: LensId | "all"; count?: number },
+  /** `extraFacts` are public-data benchmarks (already fetched); this function makes no web request itself. */
+  opts: { lens: LensId | "all"; count?: number; extraFacts?: Fact[] },
 ): Promise<InsightCardView[]> {
   const { db } = env;
   const count = Math.min(Math.max(opts.count ?? DEFAULT_CARD_COUNT, 1), 6);
-  const facts = factsForLens(
-    collectFacts(db, { now: env.now, timeZone: env.timeZone, includeBalances: env.includeBalances }),
-    opts.lens,
-  );
+  const facts = [
+    ...factsForLens(
+      collectFacts(db, { now: env.now, timeZone: env.timeZone, includeBalances: env.includeBalances }),
+      opts.lens,
+    ),
+    ...(opts.extraFacts ?? []),
+  ];
   const modelFacts = factsForModel(facts, env.includeBalances);
   if (modelFacts.length === 0) return [];
 
@@ -139,6 +153,7 @@ export async function generateInsightCards(
             body: c.body,
             factIdsJson: JSON.stringify(c.facts),
             link: c.facts.map((id) => byId.get(id)?.link).find((l) => !!l) ?? null,
+            sourcesJson: JSON.stringify(safeCitations(c.facts.flatMap((id) => byId.get(id)?.sources ?? []))),
             createdAt: env.now,
           })
           .returning()

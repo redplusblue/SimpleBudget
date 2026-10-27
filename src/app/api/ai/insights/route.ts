@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/db/client";
 import { generateInsightCards, listInsightCards } from "@/lib/ai/insight-cards";
+import { benchmarkFacts, getBenchmarks } from "@/lib/ai/web-research";
 import { LENS_IDS } from "@/lib/ai/lenses";
 import { errorResponse, readJson } from "@/lib/api-errors";
 import { requireApiAuth } from "@/lib/auth";
@@ -24,6 +25,8 @@ const body = z.object({
   lens: z.enum([...LENS_IDS, "all"]).default("all"),
   model: z.string().trim().min(1).max(120).optional(),
   count: z.number().int().min(1).max(6).optional(),
+  /** Compare with public data (only does anything while web research is switched on in settings). */
+  web: z.boolean().optional(),
 });
 
 /** Generates a batch of cards from computed facts. Costs money when there is something to say; manual only. */
@@ -46,6 +49,10 @@ export async function POST(request: Request) {
       subject: `cards:${input.lens}`,
       entry: picked.entry,
     });
+    // Public benchmarks come from a separate, generic research request; the card request itself makes no web call.
+    const extraFacts = input.web
+      ? benchmarkFacts(await getBenchmarks({ db, cfg: config, now, timeZone }, input.lens))
+      : [];
     const cards = await generateInsightCards(
       {
         db,
@@ -57,7 +64,7 @@ export async function POST(request: Request) {
         includeBalances: config.includeBalances,
         userName: config.userName,
       },
-      { lens: input.lens, count: input.count },
+      { lens: input.lens, count: input.count, extraFacts },
     );
     return NextResponse.json({ cards });
   } catch (e) {

@@ -1,0 +1,1 @@
+ALTER TABLE `ai_insights` ADD `sources_json` text;

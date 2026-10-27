@@ -13,6 +13,7 @@ import { memoryPromptBlock } from "./memory";
 import type { AnyProposalView } from "./proposal-types";
 import { listThreadProposals } from "./proposals";
 import { PROPOSE_TOOLS, createProposeRunner } from "./propose-tools";
+import { benchmarkPromptBlock, sourcesNote, type Benchmark } from "./web-research";
 
 export class AssistantError extends Error {
   constructor(
@@ -92,7 +93,7 @@ function costOf(db: DbLike, runId: number | null): number | null {
 export async function chat(
   env: ChatEnv,
   /** `readOnly` (used by automations) offers the read tools only: nothing can be proposed. */
-  input: { threadId?: number; lens: LensId; text: string; readOnly?: boolean },
+  input: { threadId?: number; lens: LensId; text: string; readOnly?: boolean; benchmarks?: Benchmark[] },
   emit: (e: ChatEvent) => void,
 ): Promise<void> {
   const { db } = env;
@@ -137,7 +138,7 @@ export async function chat(
   });
   const system = `${stablePrompt(db, lens, [...read, ...propose], propose.length > 0)}\n\nToday is ${localDateString(env.now, env.timeZone)}.${
     thread.summary ? `\nEarlier in this conversation: ${thread.summary}` : ""
-  }\nSummary of this month:\n${JSON.stringify(summary)}`;
+  }\nSummary of this month:\n${JSON.stringify(summary)}${benchmarkPromptBlock(input.benchmarks ?? [])}`;
 
   const readRunner = createToolRunner(db, env.now, env.timeZone, env.includeBalances);
   const proposeRunner = createProposeRunner(
@@ -174,6 +175,12 @@ export async function chat(
       return;
     }
     throw e;
+  }
+  // Public data was part of this request: name where it came from (plain text; no links from model output).
+  const note = answer.trim() ? sourcesNote(input.benchmarks ?? []) : "";
+  if (note) {
+    answer += note;
+    emit({ type: "text", text: note });
   }
 
   const runId = env.runId?.() ?? null;

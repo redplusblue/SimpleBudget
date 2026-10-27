@@ -9,6 +9,8 @@ export interface InsightCardView {
   title: string;
   body: string;
   link: string | null;
+  /** https sources for public-data facts; links come from the provider's citations only. */
+  sources: Array<{ url: string; title?: string }>;
   pinned: boolean;
   createdAt: number;
 }

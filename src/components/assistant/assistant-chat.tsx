@@ -4,12 +4,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, MessageSquarePlus, MessagesSquare, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useAiConfig } from "@/components/ai/ai-config";
 import { MarkdownLite } from "@/components/ai/markdown-lite";
 import { ModelPicker } from "@/components/ai/model-picker";
 import { readNdjson } from "@/components/ai/read-ndjson";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJson } from "@/lib/fetch-json";
@@ -137,6 +140,8 @@ export function AssistantChat() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [model, setModel] = useState<string>();
+  const { data: config } = useAiConfig();
+  const [web, setWeb] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -196,7 +201,13 @@ export function AssistantChat() {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...(threadId ? { threadId } : {}), lens, text: message, ...(model ? { model } : {}) }),
+        body: JSON.stringify({
+          ...(threadId ? { threadId } : {}),
+          lens,
+          text: message,
+          ...(model ? { model } : {}),
+          ...(web && config?.webSearch ? { web: true } : {}),
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -346,6 +357,14 @@ export function AssistantChat() {
           )}
 
           <ModelPicker feature="chat" value={model} onChange={setModel} className="w-full md:w-64" />
+          {config?.webSearch && (
+            <div className="flex items-center gap-2">
+              <Checkbox id="chat-web" checked={web} onCheckedChange={(v) => setWeb(v === true)} />
+              <Label htmlFor="chat-web" className="text-sm font-normal">
+                Compare with public data
+              </Label>
+            </div>
+          )}
           <form
             className="flex gap-2"
             onSubmit={(e) => {

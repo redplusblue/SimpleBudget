@@ -351,6 +351,8 @@ export const aiInsights = sqliteTable(
     body: text("body").notNull(),
     factIdsJson: text("fact_ids_json").notNull(),
     link: text("link"),
+    /** https sources cited for public-data (web research) facts, JSON array of { url, title? }. */
+    sourcesJson: text("sources_json"),
     pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
     dismissedAt: integer("dismissed_at"),
     createdAt: integer("created_at").notNull(),

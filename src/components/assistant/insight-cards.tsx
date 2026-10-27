@@ -5,10 +5,13 @@ import { AlertTriangle, ChevronDown, Info, Loader2, Pin, PinOff, Sparkles, Thumb
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useAiConfig } from "@/components/ai/ai-config";
 import { ModelPicker } from "@/components/ai/model-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, fetchJson, jsonBody } from "@/lib/fetch-json";
 import type { InsightCardView } from "@/lib/ai/insight-types";
@@ -60,6 +63,24 @@ function CardItem({ card }: { card: InsightCardView }) {
       </div>
       <p className="font-medium break-words">{card.title}</p>
       <p className="text-sm break-words text-muted-foreground">{card.body}</p>
+      {card.sources.length > 0 && (
+        <ul className="space-y-0.5 text-xs text-muted-foreground" aria-label="Sources">
+          {card.sources.map((src) => (
+            <li key={src.url} className="break-words">
+              Source:{" "}
+              <a
+                href={src.url}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="text-link underline-offset-4 hover:underline"
+              >
+                {src.title || new URL(src.url).hostname}
+              </a>{" "}
+              ({new URL(src.url).hostname.replace(/^www\./, "")})
+            </li>
+          ))}
+        </ul>
+      )}
       {card.link?.startsWith("/") && (
         <Link href={card.link} className="inline-block text-sm text-link underline-offset-4 hover:underline">
           Open
@@ -75,6 +96,8 @@ export function InsightCards() {
   const [model, setModel] = useState<string>();
   const [showEarlier, setShowEarlier] = useState(false);
   const [empty, setEmpty] = useState(false);
+  const { data: config } = useAiConfig();
+  const [web, setWeb] = useState(false);
 
   const query = useQuery({
     queryKey: KEY,
@@ -84,7 +107,7 @@ export function InsightCards() {
     mutationFn: () =>
       fetchJson<{ cards: InsightCardView[] }>(
         "/api/ai/insights",
-        jsonBody("POST", { lens, ...(model ? { model } : {}) }),
+        jsonBody("POST", { lens, ...(model ? { model } : {}), ...(web && config?.webSearch ? { web: true } : {}) }),
       ),
     onSuccess: (r) => {
       setEmpty(r.cards.length === 0);
@@ -124,6 +147,14 @@ export function InsightCards() {
           <Button className="h-11 md:h-9" onClick={() => generate.mutate()} disabled={generate.isPending}>
             {generate.isPending ? <Loader2 className="animate-spin" /> : <Sparkles />} Generate
           </Button>
+          {config?.webSearch && (
+            <div className="flex items-center gap-2">
+              <Checkbox id="insights-web" checked={web} onCheckedChange={(v) => setWeb(v === true)} />
+              <Label htmlFor="insights-web" className="text-sm font-normal">
+                Compare with public data
+              </Label>
+            </div>
+          )}
         </div>
         {empty && !generate.isPending && (
           <p className="text-sm text-muted-foreground" role="status">
