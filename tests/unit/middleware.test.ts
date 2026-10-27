@@ -59,6 +59,7 @@ describe("middleware", () => {
     "/api/automations/1",
     "/api/automations/1/run",
     "/api/automations/1/runs",
+    "/api/ai/search",
     "/api/ai/memories",
     "/api/ai/memories/1",
     "/api/ai/proposals/1/accept",
