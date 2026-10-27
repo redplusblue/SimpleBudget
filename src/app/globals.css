@@ -133,6 +133,8 @@
   html {
     @apply font-sans;
     -webkit-text-size-adjust: 100%;
+    /* No double-tap-zoom wait on taps; keeps touch scrolling snappy. */
+    touch-action: manipulation;
   }
   body {
     @apply bg-background text-foreground antialiased;

@@ -114,6 +114,7 @@ export function SpendingPaceChart({ chart }: { chart: SpendingChart }) {
                     isAnimationActive={false}
                   />
                   <Line
+                    isAnimationActive={false}
                     type="monotone"
                     dataKey="current"
                     stroke="var(--brand-from)"

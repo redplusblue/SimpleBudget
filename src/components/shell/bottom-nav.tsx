@@ -24,7 +24,7 @@ export function BottomNav() {
     <>
       <nav
         aria-label="Primary"
-        className="pb-safe fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface/95 backdrop-blur lg:hidden"
+        className="pb-safe fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface lg:hidden"
       >
         {MOBILE_TABS.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);
