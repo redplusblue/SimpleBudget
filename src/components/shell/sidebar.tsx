@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeftClose, PanelLeftOpen, Wallet } from "lucide-react";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
@@ -9,14 +9,17 @@ import { isActive, NAV_ITEMS } from "./nav";
 import { SidebarAccounts } from "./sidebar-accounts";
 
 const STORAGE_KEY = "sb:sidebar-collapsed";
+const ACCOUNTS_KEY = "sb:sidebar-accounts-hidden";
 
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [accountsHidden, setAccountsHidden] = useState(false);
 
   useEffect(() => {
     try {
       setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+      setAccountsHidden(localStorage.getItem(ACCOUNTS_KEY) === "1");
     } catch {}
   }, []);
 
@@ -26,6 +29,15 @@ export function Sidebar() {
         localStorage.setItem(STORAGE_KEY, c ? "0" : "1");
       } catch {}
       return !c;
+    });
+  }
+
+  function toggleAccounts() {
+    setAccountsHidden((h) => {
+      try {
+        localStorage.setItem(ACCOUNTS_KEY, h ? "0" : "1");
+      } catch {}
+      return !h;
     });
   }
 
@@ -47,21 +59,34 @@ export function Sidebar() {
           const active = isActive(pathname, href);
           return (
             <Fragment key={href}>
-              <Link
-                href={href}
-                title={collapsed ? label : undefined}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground",
-                  active && "bg-surface-2 text-foreground",
-                  collapsed && "justify-center px-0",
+              <div className="relative">
+                <Link
+                  href={href}
+                  title={collapsed ? label : undefined}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground",
+                    active && "bg-surface-2 text-foreground",
+                    collapsed && "justify-center px-0",
+                  )}
+                >
+                  <Icon className={cn("size-[18px] shrink-0", active && "text-link")} />
+                  {!collapsed && label}
+                  {collapsed && <span className="sr-only">{label}</span>}
+                </Link>
+                {href === "/accounts" && !collapsed && (
+                  <button
+                    type="button"
+                    onClick={toggleAccounts}
+                    aria-expanded={!accountsHidden}
+                    aria-label={accountsHidden ? "Show account list" : "Hide account list"}
+                    className="absolute top-1/2 right-2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+                  >
+                    <ChevronDown className={cn("size-4 transition-transform", accountsHidden && "-rotate-90")} />
+                  </button>
                 )}
-              >
-                <Icon className={cn("size-[18px] shrink-0", active && "text-link")} />
-                {!collapsed && label}
-                {collapsed && <span className="sr-only">{label}</span>}
-              </Link>
-              {href === "/accounts" && !collapsed && <SidebarAccounts />}
+              </div>
+              {href === "/accounts" && !collapsed && !accountsHidden && <SidebarAccounts />}
             </Fragment>
           );
         })}
