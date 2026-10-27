@@ -1,7 +1,9 @@
 "use client";
 
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Loader2, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { useAiConfig } from "@/components/ai/ai-config";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useAccountsOverview, useCategories, useTags } from "@/hooks/use-lookups";
+import { fetchJson, jsonBody } from "@/lib/fetch-json";
 import { centsToDecimalString, parseCents } from "@/lib/finance/cents";
 import { countActiveFilters } from "@/lib/finance/transaction-params";
 import type { TransactionFilters } from "@/lib/finance/transaction-types";
@@ -29,12 +32,36 @@ interface Props {
 /** Search box + filters. Inline on desktop; on mobile the filters live in a bottom drawer. */
 export function FiltersBar({ filters, onChange, onClear, scopedToAccount }: Props) {
   const [open, setOpen] = useState(false);
+  const [ask, setAsk] = useState(false);
+  const { data: ai } = useAiConfig();
   const active = countActiveFilters(filters);
 
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <SearchBox value={filters.q ?? ""} onCommit={(q) => onChange({ q: q || undefined })} />
+        {ask && ai?.enabled ? (
+          <AskBox
+            onApply={(next) => {
+              // The understood filters replace the current ones (the account scope is kept by the register).
+              onChange({ ...Object.fromEntries(FILTER_KEYS.map((k) => [k, undefined])), ...next });
+              setAsk(false);
+            }}
+          />
+        ) : (
+          <SearchBox value={filters.q ?? ""} onCommit={(q) => onChange({ q: q || undefined })} />
+        )}
+        {ai?.enabled && (
+          <Button
+            variant={ask ? "default" : "outline"}
+            size="icon"
+            className="size-11 shrink-0 md:size-9"
+            aria-label="Search in plain English"
+            aria-pressed={ask}
+            onClick={() => setAsk((v) => !v)}
+          >
+            <Sparkles />
+          </Button>
+        )}
         <Button
           variant="outline"
           className="relative h-11 shrink-0 gap-2 md:hidden"
@@ -93,6 +120,88 @@ export function FiltersBar({ filters, onChange, onClear, scopedToAccount }: Prop
         </div>
       </ResponsiveDialog>
     </div>
+  );
+}
+
+const FILTER_KEYS = [
+  "q",
+  "from",
+  "to",
+  "categoryId",
+  "tagId",
+  "minAmountCents",
+  "maxAmountCents",
+  "type",
+  "status",
+  "merchant",
+  "merchantName",
+] as const;
+
+/** Ask in plain English: the answer becomes ordinary filters that can be edited like any other. */
+function AskBox({ onApply }: { onApply: (filters: TransactionFilters) => void }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function submit() {
+    const question = text.trim();
+    if (!question || busy) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetchJson<{ filters: TransactionFilters; dropped: string[] }>(
+        "/api/ai/search",
+        jsonBody("POST", { text: question }),
+      );
+      if (Object.keys(res.filters).length === 0) {
+        setMessage("I couldn't find anything to filter on. Try rephrasing it.");
+        return;
+      }
+      onApply(res.filters);
+      if (res.dropped.length) toast.message(`Ignored: ${res.dropped.join(", ")}`);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Couldn't understand that.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form
+      className="relative min-w-0 flex-1 md:max-w-sm"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+    >
+      {busy ? (
+        <Loader2
+          className="absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground"
+          aria-hidden
+        />
+      ) : (
+        <Sparkles
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden
+        />
+      )}
+      <Input
+        type="text"
+        enterKeyHint="search"
+        aria-label="Ask in plain English"
+        placeholder="e.g. coffee over $5 since March"
+        value={text}
+        maxLength={300}
+        onChange={(e) => setText(e.target.value)}
+        className="h-11 pl-9 md:h-9"
+        autoFocus
+      />
+      {message && (
+        <p role="alert" className="absolute top-full left-0 z-10 mt-1 text-xs text-negative">
+          {message}
+        </p>
+      )}
+    </form>
   );
 }
 

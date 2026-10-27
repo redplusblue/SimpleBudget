@@ -73,6 +73,18 @@ test.beforeAll(async () => {
         );
         return;
       }
+      if (system.startsWith("You turn a plain-English question")) {
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        res.end(
+          sse([
+            delta(
+              { content: JSON.stringify({ q: "blue bottle", minAmount: 5, category: "Spaceships", type: "expense" }) },
+              "stop",
+            ),
+          ]),
+        );
+        return;
+      }
       const toolNames =
         (body.tools as Array<{ function: { name: string } }> | undefined)?.map((t) => t.function.name) ?? [];
       if (toolNames.includes("propose_memory") && /remember/i.test(lastUser)) {
@@ -451,6 +463,38 @@ test("an AI insight automation runs now, sends the card, and shows up in the usa
   await expectNoHorizontalOverflow(page);
   await page.request.delete(`/api/automations/${id}`);
   await page.request.delete(`/api/automations/destinations/${destinationId}`);
+});
+
+test("plain-English search becomes ordinary filters, drops what it can't map, and sends no transactions", async ({
+  page,
+}) => {
+  await login(page);
+  await page.request.put("/api/settings/ai", {
+    data: { enabled: true, baseUrl: `http://127.0.0.1:${MOCK_PORT}/v1`, model: "mock-model" },
+  });
+  await page.goto("/transactions?q=zzz-something-else");
+  requests = [];
+  await page.getByRole("button", { name: "Search in plain English" }).click();
+  await page.getByLabel("Ask in plain English").fill("coffee over $5 lately");
+  await page.getByLabel("Ask in plain English").press("Enter");
+  await expect(page).toHaveURL(/q=blue(\+|%20)bottle/);
+  await expect(page).toHaveURL(/min=5(\.00)?/);
+  await expect(page).toHaveURL(/type=expense/);
+  expect(page.url()).not.toContain("zzz-something-else"); // the understood filters replaced the old ones
+  expect(page.url()).not.toContain("category="); // "Spaceships" isn't one of your categories
+  await expect(page.getByText('Ignored: category "Spaceships"')).toBeVisible();
+  await expect(page.getByRole("searchbox", { name: "Search transactions" })).toHaveValue("blue bottle");
+  await expect(page.getByTestId("txn-row").first()).toBeVisible();
+  const wire = JSON.stringify(requests.map((r) => r.body));
+  expect(wire).toContain("coffee over $5 lately");
+  expect(wire).not.toContain("fake-checking");
+  expect(wire).not.toMatch(/BLUE BOTTLE COFFEE/i);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoHorizontalOverflow(page);
+  await page.getByRole("button", { name: "Search in plain English" }).click();
+  await expect(page.getByLabel("Ask in plain English")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 });
 
 test("web research is invisible while off, and can't be enabled away from OpenRouter", async ({ page }) => {
