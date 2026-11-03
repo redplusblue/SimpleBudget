@@ -4,7 +4,7 @@ import { format, parse } from "date-fns";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartTable } from "@/components/charts/chart-table";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatCents } from "@/lib/finance/cents";
+import { useFormatMoney } from "@/components/currency/display-currency";
 import type { SpendingChart } from "@/lib/finance/dashboard-types";
 
 const LEGEND = [
@@ -15,6 +15,7 @@ const LEGEND = [
 
 /** The signature chart: cumulative spend this month against last month (dashed) and the 3-month average (faint). */
 export function SpendingPaceChart({ chart }: { chart: SpendingChart }) {
+  const fmt = useFormatMoney();
   const hasSpend = chart.points.some((p) => (p.current ?? 0) > 0);
   const monthName = (m: string) => format(parse(m, "yyyy-MM", new Date()), "MMMM");
   const currentTotal = [...chart.points].reverse().find((p) => p.current !== null)?.current ?? 0;
@@ -55,7 +56,7 @@ export function SpendingPaceChart({ chart }: { chart: SpendingChart }) {
               className="h-64 w-full"
               data-testid="spending-chart"
               role="img"
-              aria-label={`Cumulative spending in ${monthName(chart.month)}: ${formatCents(currentTotal)} so far, compared with last month and the three month average.`}
+              aria-label={`Cumulative spending in ${monthName(chart.month)}: ${fmt(currentTotal)} so far, compared with last month and the three month average.`}
             >
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chart.points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
@@ -69,7 +70,7 @@ export function SpendingPaceChart({ chart }: { chart: SpendingChart }) {
                     minTickGap={24}
                   />
                   <YAxis
-                    tickFormatter={(v: number) => formatCents(v, { compact: true })}
+                    tickFormatter={(v: number) => fmt(v, { compact: true })}
                     tick={{ fill: "var(--text-faint)", fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
@@ -85,7 +86,7 @@ export function SpendingPaceChart({ chart }: { chart: SpendingChart }) {
                     }}
                     labelFormatter={(d) => `Day ${d}`}
                     formatter={(v, name) => [
-                      formatCents(Number(v)),
+                      fmt(Number(v)),
                       name === "current"
                         ? "This month"
                         : name === "last"

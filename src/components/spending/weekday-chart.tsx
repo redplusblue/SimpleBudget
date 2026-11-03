@@ -2,7 +2,7 @@
 
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartTable } from "@/components/charts/chart-table";
-import { formatCents } from "@/lib/finance/cents";
+import { useFormatMoney } from "@/components/currency/display-currency";
 import type { WeekdayRow } from "@/lib/finance/spending-report-types";
 import { EmptyNote, Section } from "./section";
 
@@ -11,6 +11,7 @@ const FULL = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Frid
 
 /** Average spend on each day of the week, over the days of that kind that have happened. */
 export function WeekdayChart({ rows }: { rows: WeekdayRow[] }) {
+  const fmt = useFormatMoney();
   const max = Math.max(0, ...rows.map((r) => r.avgCents));
   const data = rows.map((r) => ({ ...r, name: NAMES[r.dow] }));
   return (
@@ -27,7 +28,7 @@ export function WeekdayChart({ rows }: { rows: WeekdayRow[] }) {
             className="h-48 w-full"
             data-testid="weekday-chart"
             role="img"
-            aria-label={`Average spending by weekday: ${rows.map((r) => `${NAMES[r.dow]} ${formatCents(r.avgCents)}`).join(", ")}`}
+            aria-label={`Average spending by weekday: ${rows.map((r) => `${NAMES[r.dow]} ${fmt(r.avgCents)}`).join(", ")}`}
           >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
@@ -39,7 +40,7 @@ export function WeekdayChart({ rows }: { rows: WeekdayRow[] }) {
                   tickLine={false}
                 />
                 <YAxis
-                  tickFormatter={(v: number) => formatCents(v, { compact: true })}
+                  tickFormatter={(v: number) => fmt(v, { compact: true })}
                   tick={{ fill: "var(--text-faint)", fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
@@ -54,7 +55,7 @@ export function WeekdayChart({ rows }: { rows: WeekdayRow[] }) {
                     fontSize: 12,
                   }}
                   formatter={(v, _n, item) => [
-                    `${formatCents(Number(v))} average (${formatCents((item.payload as WeekdayRow).cents)} over ${(item.payload as WeekdayRow).occurrences} ${FULL[(item.payload as WeekdayRow).dow]})`,
+                    `${fmt(Number(v))} average (${fmt((item.payload as WeekdayRow).cents)} over ${(item.payload as WeekdayRow).occurrences} ${FULL[(item.payload as WeekdayRow).dow]})`,
                     "",
                   ]}
                   labelFormatter={(l) => String(l)}

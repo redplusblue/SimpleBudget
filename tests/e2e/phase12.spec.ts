@@ -1,4 +1,5 @@
 import { createServer, type Server } from "node:http";
+import Database from "better-sqlite3";
 import { expect, test, type Page } from "@playwright/test";
 import { expectNoHorizontalOverflow, insertForeignAccount, revealLazy } from "./helpers";
 
@@ -183,4 +184,57 @@ test("the new pages fit a phone", async ({ page }) => {
     await revealLazy(page);
     await expectNoHorizontalOverflow(page);
   }
+});
+
+test("display currency: enable in settings, switch from the top bar, amounts convert, then turn off", async ({
+  page,
+}) => {
+  // The daily download is not run in tests: store rates the way the job would.
+  const db = new Database(DB);
+  try {
+    db.pragma("busy_timeout = 5000");
+    const rates: Record<string, number> = { USD: 1, EUR: 0.9, GBP: 0.8, INR: 80, CAD: 1.4, MXN: 20 };
+    for (let i = 0; i < 30; i++)
+      rates[`Q${String.fromCharCode(65 + (i % 26))}${String.fromCharCode(65 + Math.floor(i / 26))}`] = 3;
+    db.prepare("insert or replace into settings (key, value) values ('fx:market', ?)").run(
+      JSON.stringify({ updatedAt: Math.floor(Date.now() / 1000), rates }),
+    );
+  } finally {
+    db.close();
+  }
+  await login(page);
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: /Display currency/ })).toHaveCount(0);
+
+  await page.goto("/settings/currency");
+  await page.getByRole("switch", { name: "Enable multi-currency display" }).click();
+  const button = page.getByRole("button", { name: /Display currency: USD/ });
+  await expect(button).toBeVisible();
+
+  await page.goto("/accounts");
+  const before = (await page.locator("[data-money]").first().textContent()) ?? "";
+  expect(before).toContain("$");
+
+  await page.getByRole("button", { name: /Display currency/ }).click();
+  const list = page.getByTestId("currency-list");
+  await expect(list.getByRole("button").first()).toContainText("USD");
+  await expect(list.getByRole("button").nth(1)).toContainText("INR");
+  await list.getByRole("button", { name: /INR/ }).click();
+  await expect(page.getByRole("button", { name: /Display currency: INR/ })).toBeVisible();
+  await expect(page.locator("[data-money]").first()).toContainText("₹");
+  await expectNoHorizontalOverflow(page);
+
+  // It sticks after a reload, and the list can be searched.
+  await page.reload();
+  await expect(page.locator("[data-money]").first()).toContainText("₹");
+  await page.getByRole("button", { name: /Display currency/ }).click();
+  await page.getByLabel("Search currencies").fill("peso");
+  await expect(page.getByTestId("currency-list").getByRole("button", { name: /MXN/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.goto("/settings/currency");
+  await page.getByRole("switch", { name: "Enable multi-currency display" }).click();
+  await expect(page.getByRole("button", { name: /Display currency/ })).toHaveCount(0);
+  await page.goto("/accounts");
+  await expect(page.locator("[data-money]").first()).toContainText("$");
 });

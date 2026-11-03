@@ -1,6 +1,8 @@
+"use client";
+
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
-import { formatCents } from "@/lib/finance/cents";
+import { useFormatMoney } from "@/components/currency/display-currency";
 import type { DailySpend } from "@/lib/finance/spending-report-types";
 import { cn } from "@/lib/utils";
 import { spendingHref } from "./links";
@@ -18,6 +20,7 @@ const SHADES = [
 
 /** Daily spending as a calendar. Each day opens that day's purchases. */
 export function Heatmap({ days }: { days: DailySpend[] }) {
+  const fmt = useFormatMoney();
   const max = heatScale(days);
   const hasSpending = days.some((d) => d.cents > 0);
   const weeks = calendarWeeks(days);
@@ -38,7 +41,7 @@ export function Heatmap({ days }: { days: DailySpend[] }) {
                 {week.map((d, di) => {
                   if (!d) return <span key={di} role="gridcell" aria-hidden />;
                   const level = intensity(d.cents, max);
-                  const label = `${format(parseISO(d.date), "EEEE, MMMM d")}: ${d.future ? "hasn't happened yet" : d.cents > 0 ? `${formatCents(d.cents)} spent` : "nothing spent"}`;
+                  const label = `${format(parseISO(d.date), "EEEE, MMMM d")}: ${d.future ? "hasn't happened yet" : d.cents > 0 ? `${fmt(d.cents)} spent` : "nothing spent"}`;
                   const cell = (
                     <span
                       className={cn(

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Money } from "@/components/money";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatCents } from "@/lib/finance/cents";
+import { useFormatMoney } from "@/components/currency/display-currency";
 import type { CategoryBreakdown } from "@/lib/finance/dashboard-types";
 import { cn } from "@/lib/utils";
 import { monthLink, percent } from "./format";
@@ -13,6 +13,7 @@ import { monthLink, percent } from "./format";
 const OTHER_COLOR = "#6B7385";
 
 export function TopCategoriesCard({ breakdown, month }: { breakdown: CategoryBreakdown; month: string }) {
+  const fmt = useFormatMoney();
   const slices = [
     ...breakdown.items.map((i) => ({ key: String(i.id ?? "none"), name: i.name, value: i.cents, color: i.color })),
     ...(breakdown.otherCents > 0
@@ -37,7 +38,7 @@ export function TopCategoriesCard({ breakdown, month }: { breakdown: CategoryBre
               className="relative mx-auto h-44 w-44"
               data-testid="category-donut"
               role="img"
-              aria-label={`Spending by category: ${slices.map((s) => `${s.name} ${formatCents(s.value)}`).join(", ")}`}
+              aria-label={`Spending by category: ${slices.map((s) => `${s.name} ${fmt(s.value)}`).join(", ")}`}
             >
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -63,7 +64,7 @@ export function TopCategoriesCard({ breakdown, month }: { breakdown: CategoryBre
                       fontSize: 12,
                     }}
                     itemStyle={{ color: "var(--text)" }}
-                    formatter={(v) => formatCents(Number(v))}
+                    formatter={(v) => fmt(Number(v))}
                   />
                 </PieChart>
               </ResponsiveContainer>

@@ -1,6 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { Money } from "@/components/money";
-import { formatCents } from "@/lib/finance/cents";
+import { useFormatMoney } from "@/components/currency/display-currency";
 import type {
   AccountBreakdownRow,
   MerchantRow,
@@ -59,6 +61,7 @@ export function AccountsCard({ range, rows }: { range: ReportRange; rows: Accoun
 }
 
 export function MerchantsCard({ range, rows }: { range: ReportRange; rows: MerchantRow[] }) {
+  const fmt = useFormatMoney();
   return (
     <Section
       id="merchants"
@@ -94,7 +97,7 @@ export function MerchantsCard({ range, rows }: { range: ReportRange; rows: Merch
                     <Link
                       href={spendingHref(spanOf(range), { merchant: m.key, merchantName: m.name })}
                       className="flex min-h-11 items-center gap-2 rounded-md outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/60"
-                      title={`${m.name}: ${formatCents(m.cents)}`}
+                      title={`${m.name}: ${fmt(m.cents)}`}
                     >
                       <span className="w-5 shrink-0 text-xs text-muted-foreground tabular-nums">{i + 1}</span>
                       <span className="truncate">{m.name}</span>

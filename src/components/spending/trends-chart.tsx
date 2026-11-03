@@ -4,7 +4,7 @@ import { ChartTable } from "@/components/charts/chart-table";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { formatCents } from "@/lib/finance/cents";
+import { useFormatMoney } from "@/components/currency/display-currency";
 import type { TrendReport } from "@/lib/finance/spending-report-types";
 import { monthSpan, spendingHref } from "./links";
 import { EmptyNote, Section } from "./section";
@@ -20,6 +20,7 @@ const monthLong = (m: string) => {
 
 /** 12 months of spending stacked by category, with income as a line. Clicking a bar opens that month and category. */
 export function TrendsChart({ trends }: { trends: TrendReport }) {
+  const fmt = useFormatMoney();
   const router = useRouter();
   const hasData = trends.series.some((s) => s.values.some((v) => v > 0));
   const data = trends.months.map((month, i) => ({
@@ -64,7 +65,7 @@ export function TrendsChart({ trends }: { trends: TrendReport }) {
                   interval={0}
                 />
                 <YAxis
-                  tickFormatter={(v: number) => formatCents(v, { compact: true })}
+                  tickFormatter={(v: number) => fmt(v, { compact: true })}
                   tick={{ fill: "var(--text-faint)", fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
@@ -80,7 +81,7 @@ export function TrendsChart({ trends }: { trends: TrendReport }) {
                   }}
                   labelFormatter={(_l, items) => (items?.[0]?.payload?.month ? monthLong(items[0].payload.month) : "")}
                   formatter={(v, key) => [
-                    formatCents(Number(v)),
+                    fmt(Number(v)),
                     key === "income" ? "Income" : (trends.series[Number(String(key).slice(1))]?.name ?? String(key)),
                   ]}
                 />

@@ -1,4 +1,6 @@
-import { formatCents } from "@/lib/finance/cents";
+"use client";
+
+import { useFormatMoney } from "@/components/currency/display-currency";
 import { cn } from "@/lib/utils";
 
 export interface MoneyProps {
@@ -26,7 +28,8 @@ export function Money({
   currency,
   className,
 }: MoneyProps) {
-  const text = formatCents(cents, { signDisplay: sign, compact, hideZeroCents, currency });
+  const format = useFormatMoney();
+  const text = format(cents, { signDisplay: sign, compact, hideZeroCents, currency });
   const tone =
     colorize && cents > 0 ? "text-positive" : colorize === "strict" && cents < 0 ? "text-negative" : undefined;
   return (

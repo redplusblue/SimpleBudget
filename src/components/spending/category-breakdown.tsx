@@ -8,7 +8,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Treemap } from "rech
 import { Sparkline } from "@/components/charts/sparkline";
 import { Money } from "@/components/money";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { formatCents } from "@/lib/finance/cents";
+import { useFormatMoney } from "@/components/currency/display-currency";
 import type { CategoryBreakdownRow, ReportRange } from "@/lib/finance/spending-report-types";
 import { spendingHref } from "./links";
 import { EmptyNote, Section } from "./section";
@@ -35,6 +35,7 @@ export function CategoryBreakdown({
   rows: CategoryBreakdownRow[];
   totalCents: number;
 }) {
+  const fmt = useFormatMoney();
   const router = useRouter();
   const [view, setView] = useState<View>("donut");
   const span = { from: range.from, to: range.to };
@@ -77,7 +78,7 @@ export function CategoryBreakdown({
             className="mx-auto h-64 w-full max-w-md"
             data-testid={view === "donut" ? "category-donut" : "category-treemap"}
             role="img"
-            aria-label={`Spending by category: ${rows.map((r) => `${r.name} ${formatCents(r.cents)}`).join(", ")}`}
+            aria-label={`Spending by category: ${rows.map((r) => `${r.name} ${fmt(r.cents)}`).join(", ")}`}
           >
             <ResponsiveContainer width="100%" height="100%">
               {view === "donut" ? (
@@ -106,7 +107,7 @@ export function CategoryBreakdown({
                       fontSize: 12,
                     }}
                     itemStyle={{ color: "var(--text)" }}
-                    formatter={(v) => formatCents(Number(v))}
+                    formatter={(v) => fmt(Number(v))}
                   />
                 </PieChart>
               ) : (

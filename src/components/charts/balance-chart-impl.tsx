@@ -4,7 +4,7 @@ import { format, parseISO } from "date-fns";
 import { useEffect, useId, useRef, useState } from "react";
 import { ChartTable } from "./chart-table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatCents } from "@/lib/finance/cents";
+import { useFormatMoney } from "@/components/currency/display-currency";
 import type { BalancePoint } from "@/lib/finance/accounts-overview";
 
 /** Balance-over-time area chart with loading, empty and error states. */
@@ -89,6 +89,7 @@ function AreaPlot({
   tickFormat: string;
   gradientId: string;
 }) {
+  const fmt = useFormatMoney();
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hover, setHover] = useState<number | null>(null);
@@ -129,7 +130,7 @@ function AreaPlot({
           width={width}
           height={height}
           role="img"
-          aria-label={`${label} from ${formatCents(first.balanceCents, { currency })} on ${format(parseISO(first.date), "MMM d")} to ${formatCents(last.balanceCents, { currency })} on ${format(parseISO(last.date), "MMM d")}`}
+          aria-label={`${label} from ${fmt(first.balanceCents, { currency })} on ${format(parseISO(first.date), "MMM d")} to ${fmt(last.balanceCents, { currency })} on ${format(parseISO(last.date), "MMM d")}`}
           onPointerMove={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
             const rel = (e.clientX - r.left - PAD.left) / (plotW || 1);
@@ -162,7 +163,7 @@ function AreaPlot({
                   fill="var(--text-faint)"
                   fontSize={11}
                 >
-                  {formatCents(t, { currency, compact: true })}
+                  {fmt(t, { currency, compact: true })}
                 </text>
               </g>
             ))}
@@ -218,7 +219,7 @@ function AreaPlot({
         >
           <p className="text-muted-foreground">{format(parseISO(h.date), "EEE, MMM d, yyyy")}</p>
           <p className="font-medium">
-            {label}: {formatCents(h.balanceCents, { currency })}
+            {label}: {fmt(h.balanceCents, { currency })}
           </p>
         </div>
       )}

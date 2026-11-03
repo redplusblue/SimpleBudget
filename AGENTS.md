@@ -56,6 +56,6 @@ Small, verbose commits (what changed *and why*), one concern each; end the messa
 ## Status and known gaps
 - Done: Phases 1-12 of `PLAN.md`. AI enhancement plan (`docs/plans/ai`): Phases 0-5 done (model list, per-feature models, `ai_runs` cost tracking, monthly budget; AI rule suggestions with accept/dismiss, schedule and tag rules; the Assistant page with lenses, insight cards, saved chats, memory and proposals; Trace history with an optional Explain with AI; automations to Discord/ntfy/webhook; optional web benchmarks, off by default; plain-English transaction search). Test suites: ~920 unit tests, ~165 e2e tests.
 - Lighthouse mobile (demo data): Dashboard 85-88, Accounts ~92, Insights ~83, Spending ~79, **Transactions ~66** (first rows render client-side; fixing needs time-zone-safe day headers for SSR).
-- Multi-currency conversion covers balances and net worth only; spending analytics assume one currency (`DECISIONS.md`, Phase 12).
+- Multi-currency conversion of *accounts* covers balances and net worth only; spending analytics assume one currency (`DECISIONS.md`, Phase 12). A separate display-currency toggle (top bar, daily rates) re-draws every amount in another currency without changing stored data.
 - One known e2e flake under full-suite load: `taxonomy.spec.ts` "reordering with the move buttons persists" (mobile). It passes alone.
 - Actual's envelope budgets and category groups are not imported (not in its transaction CSV).

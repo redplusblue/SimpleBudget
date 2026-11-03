@@ -243,3 +243,11 @@
 ## Documentation and handoff
 
 `AGENTS.md` (fast path for agents), `CLAUDE.md` (points to it) and `docs/` (architecture, API table, development, operations, AI, Actual migration) were written so that a new agent can continue without the original conversation. Keep them current: when you change behaviour, update the doc that describes it in the same commit.
+
+## Display currency (toggle in the top bar)
+
+- **Display only.** Stored amounts stay US dollars (integer cents). `Money` and the chart formatters convert on screen through `useFormatMoney`; an amount passed with a non-dollar `currency` is an account's own currency and is not converted. Server-side text (AI, alerts, exports) stays in dollars. Spending analytics are therefore unchanged.
+- **Rates:** one fixed HTTPS URL (open.er-api.com, free, keyless, updates once a day), fetched server-side by a daily 06:15 cron plus a catch-up after boot when the stored rates are over a day old. No library added (plain `fetch`, node-cron already in use). The URL is never user-supplied (no SSRF), the response is size-capped, time-boxed, schema-checked and rejected if it looks truncated, and a failure keeps the previous rates. Only the rates are fetched; nothing about the user leaves the server.
+- **Off by default**, switched on in Settings -> Currency. The choice is stored in `settings` (`display:currency_enabled`, `display:currency`), so it is the same on every device. Only currencies with a stored rate can be chosen; with no usable rate the app falls back to dollars.
+- The per-account manual rates (Phase 12) are separate and still apply to net worth; market rates do not feed them.
+

@@ -1,3 +1,4 @@
+import { CurrencyPicker } from "@/components/currency/currency-picker";
 import { CommandMenu } from "./command-menu";
 import { PrivacyToggle } from "./privacy-toggle";
 import { SyncPill } from "./sync-pill";
@@ -10,6 +11,7 @@ export function Topbar() {
         <CommandMenu />
         <div className="ml-auto flex items-center gap-1">
           <SyncPill />
+          <CurrencyPicker />
           <PrivacyToggle />
           <ThemeToggle />
         </div>

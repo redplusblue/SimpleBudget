@@ -9,13 +9,88 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDisplayCurrency } from "./display-currency";
 import { ApiError, fetchJson, jsonBody } from "@/lib/fetch-json";
 import type { CurrencyUse } from "@/lib/finance/currency";
+import type { DisplayCurrencyState } from "@/lib/finance/display-currency-types";
 
 const KEY = ["currencies"] as const;
 
+/** The on/off switch for showing amounts in another currency, and the daily market rates behind it. */
+function DisplayCurrencyCard() {
+  const { state, update, replace } = useDisplayCurrency();
+  const [busy, setBusy] = useState(false);
+
+  async function run(fn: () => Promise<void>, failure: string) {
+    setBusy(true);
+    try {
+      await fn();
+    } catch (e) {
+      toast.error(e instanceof ApiError || e instanceof Error ? e.message : failure);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Show amounts in other currencies</CardTitle>
+        <CardDescription>
+          Adds a currency button to the top bar so you can switch between dollars, rupees, pounds and more at a glance.
+          Display only: your data stays in US dollars and nothing is changed. Rates download once a day from a free
+          public service (open.er-api.com) and only the rates are fetched, never your data.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="display-currency-enabled">Enable multi-currency display</Label>
+          <Switch
+            id="display-currency-enabled"
+            checked={state.enabled}
+            disabled={busy}
+            onCheckedChange={(enabled) => void run(() => update({ enabled }), "Couldn't save that")}
+          />
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+          <span>
+            {state.updatedAt
+              ? `Rates updated ${new Date(state.updatedAt * 1000).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`
+              : "No rates downloaded yet"}
+          </span>
+          <Button
+            variant="outline"
+            className="h-11 md:h-9"
+            disabled={busy}
+            onClick={() =>
+              void run(async () => {
+                replace(
+                  await fetchJson<DisplayCurrencyState>("/api/settings/display-currency/refresh", jsonBody("POST", {})),
+                );
+                toast.success("Rates refreshed");
+              }, "Couldn't refresh the rates")
+            }
+          >
+            {busy && <Loader2 className="animate-spin" />} Refresh now
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function CurrencyPanel() {
+  return (
+    <div className="space-y-4">
+      <DisplayCurrencyCard />
+      <AccountRatesCard />
+    </div>
+  );
+}
+
+function AccountRatesCard() {
   const qc = useQueryClient();
   const query = useQuery({
     queryKey: KEY,
