@@ -5,7 +5,13 @@ import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { createBackup } from "@/lib/export/backup";
 import { escapeCell, parseCsv, toCsv } from "@/lib/export/csv";
-import { EXPORT_HEADER, exportTransactionsCsv } from "@/lib/export/transactions";
+import {
+  EXPORT_HEADER,
+  exportTransactionsCsv,
+  exportTransactionsJson,
+  exportTransactionsTsv,
+  exportTransactionsTxt,
+} from "@/lib/export/transactions";
 import { zonedDayStart } from "@/lib/finance/dates";
 import { setSplits } from "@/lib/finance/splits";
 import { transactionTags } from "@/db/schema";
@@ -146,5 +152,38 @@ describe("createBackup", () => {
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("other transaction export formats", () => {
+  function seeded() {
+    const db = freshDb();
+    addAccount(db, "A", { displayName: "Everyday" });
+    addTxn(db, "A", { posted: at("2026-10-01"), amountCents: -1_250, description: "COFFEE", notes: "a\tb\nc" });
+    addTxn(db, "A", { posted: at("2026-10-05"), amountCents: 20_000, description: "PAYCHECK" });
+    return db;
+  }
+
+  it("txt is an aligned, newest-first list with a header", () => {
+    const lines = exportTransactionsTxt(seeded(), TZ).trimEnd().split("\n");
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toMatch(/^Date\s+Account\s+Payee\s+Amount\s+Category/);
+    expect(lines[1]).toContain("PAYCHECK");
+    expect(lines[2]).toContain("-12.50");
+    expect(lines[2]).toContain("a b c");
+  });
+
+  it("tsv has one line per transaction with every column", () => {
+    const lines = exportTransactionsTsv(seeded(), TZ).trimEnd().split("\n");
+    expect(lines).toHaveLength(3);
+    expect(lines[0].split("\t")).toEqual(EXPORT_HEADER);
+    expect(lines[2].split("\t")).toHaveLength(EXPORT_HEADER.length);
+  });
+
+  it("json is an array of header-keyed objects", () => {
+    const out = JSON.parse(exportTransactionsJson(seeded(), TZ));
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({ Date: "2026-10-05", Amount: "200.00", Account: "Everyday" });
+    expect(Object.keys(out[0])).toEqual(EXPORT_HEADER);
   });
 });

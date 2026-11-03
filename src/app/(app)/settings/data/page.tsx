@@ -1,4 +1,4 @@
-import { Database, FileSpreadsheet } from "lucide-react";
+import { Database, FileJson, FileSpreadsheet, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -11,16 +11,23 @@ export default function DataPage() {
         <CardHeader>
           <CardTitle>Export transactions</CardTitle>
           <CardDescription>
-            Every transaction as a CSV file you can open in a spreadsheet: date, account, payee, amount, category,
-            splits, tags, notes and status.
+            Every transaction as a file: date, account, payee, amount, category, splits, tags, notes and status. Text is
+            an easy-to-read aligned list; CSV and TSV open in a spreadsheet; JSON is for scripts.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Button asChild variant="outline" className="h-11 md:h-9">
-            <a href="/api/export/transactions" download>
-              <FileSpreadsheet /> Download CSV
-            </a>
-          </Button>
+        <CardContent className="flex flex-wrap gap-2">
+          {[
+            { f: "txt", label: "Download TXT", Icon: FileText },
+            { f: "csv", label: "Download CSV", Icon: FileSpreadsheet },
+            { f: "tsv", label: "Download TSV", Icon: FileSpreadsheet },
+            { f: "json", label: "Download JSON", Icon: FileJson },
+          ].map(({ f, label, Icon }) => (
+            <Button key={f} asChild variant="outline" className="h-11 md:h-9">
+              <a href={`/api/export/transactions?format=${f}`} download>
+                <Icon /> {label}
+              </a>
+            </Button>
+          ))}
         </CardContent>
       </Card>
       <Card>

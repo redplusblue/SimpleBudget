@@ -24,8 +24,11 @@ export const EXPORT_HEADER = [
   "ID",
 ];
 
-/** Every transaction as CSV, newest first. Amounts are plain decimals (negative = money out). */
-export function exportTransactionsCsv(db: DbLike, timeZone: string): string {
+export type ExportFormat = "csv" | "tsv" | "txt" | "json";
+export const EXPORT_FORMATS: ExportFormat[] = ["csv", "tsv", "txt", "json"];
+
+/** Every transaction as export cells (header excluded), newest first. Amounts are plain decimals (negative = money out). */
+function exportRows(db: DbLike, timeZone: string): string[][] {
   const cats = new Map(
     db
       .select({ id: categories.id, name: categories.name })
@@ -76,24 +79,70 @@ export function exportTransactionsCsv(db: DbLike, timeZone: string): string {
     .all()
     .reverse();
 
-  return toCsv(
-    EXPORT_HEADER,
-    rows.map((r) => [
-      localDateString(r.at, timeZone),
-      r.account?.trim() || r.accountName,
-      r.payeeOverride?.trim() || r.payee?.trim() || r.description,
-      r.description,
-      centsToDecimalString(r.cents),
-      r.categoryId === null ? "" : (cats.get(r.categoryId) ?? ""),
-      (splits.get(r.id) ?? []).join("; "),
-      (tagNames.get(r.id) ?? []).join("; "),
-      r.notes ?? "",
-      r.pending ? "yes" : "no",
-      r.transfer ? "yes" : "no",
-      r.excluded ? "yes" : "no",
-      r.reviewed ? "yes" : "no",
-      r.source,
-      r.id,
-    ]),
+  return rows.map((r) => [
+    localDateString(r.at, timeZone),
+    r.account?.trim() || r.accountName,
+    r.payeeOverride?.trim() || r.payee?.trim() || r.description,
+    r.description,
+    centsToDecimalString(r.cents),
+    r.categoryId === null ? "" : (cats.get(r.categoryId) ?? ""),
+    (splits.get(r.id) ?? []).join("; "),
+    (tagNames.get(r.id) ?? []).join("; "),
+    r.notes ?? "",
+    r.pending ? "yes" : "no",
+    r.transfer ? "yes" : "no",
+    r.excluded ? "yes" : "no",
+    r.reviewed ? "yes" : "no",
+    r.source,
+    String(r.id),
+  ]);
+}
+
+/** Every transaction as CSV, newest first. */
+export function exportTransactionsCsv(db: DbLike, timeZone: string): string {
+  return toCsv(EXPORT_HEADER, exportRows(db, timeZone));
+}
+
+const clean = (v: string) => v.replace(/[\t\r\n]+/g, " ").trim();
+
+/** Tab-separated: one line per transaction, tabs/newlines inside cells flattened to spaces. */
+export function exportTransactionsTsv(db: DbLike, timeZone: string): string {
+  return [EXPORT_HEADER, ...exportRows(db, timeZone)].map((r) => r.map(clean).join("\t")).join("\n") + "\n";
+}
+
+/** Plain text: aligned columns, one transaction per line, the fields you read at a glance (the CSV has the rest). */
+export function exportTransactionsTxt(db: DbLike, timeZone: string): string {
+  // Date, Account, Payee, Amount, Category, Notes
+  const pick = (r: string[]) => [r[0], r[1], r[2], r[4], r[5] || (r[6] ? "Split" : ""), r[8]].map(clean);
+  const lines = [["Date", "Account", "Payee", "Amount", "Category", "Notes"], ...exportRows(db, timeZone).map(pick)];
+  const widths = [0, 1, 2, 3, 4].map((i) => Math.min(40, Math.max(...lines.map((l) => l[i].length))));
+  const fit = (v: string, w: number) => (v.length > w ? `${v.slice(0, w - 1)}…` : v);
+  return (
+    lines
+      .map((l) =>
+        l
+          .map((v, i) =>
+            i === 3 ? fit(v, widths[i]).padStart(widths[i]) : i < 5 ? fit(v, widths[i]).padEnd(widths[i]) : v,
+          )
+          .join("  ")
+          .trimEnd(),
+      )
+      .join("\n") + "\n"
   );
 }
+
+/** JSON array of objects keyed by the CSV header names. */
+export function exportTransactionsJson(db: DbLike, timeZone: string): string {
+  const out = exportRows(db, timeZone).map((r) => Object.fromEntries(EXPORT_HEADER.map((h, i) => [h, r[i]])));
+  return JSON.stringify(out, null, 2) + "\n";
+}
+
+export const EXPORT_TYPES: Record<
+  ExportFormat,
+  { mime: string; build: (db: DbLike, tz: string) => string; bom: boolean }
+> = {
+  csv: { mime: "text/csv", build: exportTransactionsCsv, bom: true },
+  tsv: { mime: "text/tab-separated-values", build: exportTransactionsTsv, bom: true },
+  txt: { mime: "text/plain", build: exportTransactionsTxt, bom: true },
+  json: { mime: "application/json", build: exportTransactionsJson, bom: false },
+};

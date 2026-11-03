@@ -36,7 +36,7 @@ Prefer a private network (Tailscale/WireGuard) over exposing it publicly. There 
 
 ## Backups and restore
 - Automatic: nightly 03:30 (and once ~1 min after boot if the newest is over 24 h old) → `backups/simplebudget-YYYYMMDD-HHMMSS.sqlite`, newest 14 kept.
-- Manual: **Settings → About → Back up now**; download via **Settings → Export** (`GET /api/export/backup`); CSV of transactions via `GET /api/export/transactions`.
+- Manual: **Settings → About → Back up now**; download via **Settings → Export** (`GET /api/export/backup`); transactions as txt/csv/tsv/json via `GET /api/export/transactions?format=txt`.
 - Copy `data/backups/` off the machine (they contain your encrypted bank connection and the password hash; treat as secrets).
 - **Restore:** `docker compose down`; replace `data/simplebudget.db` with the backup file (delete `simplebudget.db-wal` and `-shm`); `chown 10001:10001`; `docker compose up -d`. The same `APP_SECRET` is required to read the stored secrets.
 
