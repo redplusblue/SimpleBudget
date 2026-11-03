@@ -17,6 +17,7 @@ import { centsToDecimalString, parseCents } from "@/lib/finance/cents";
 import { countActiveFilters } from "@/lib/finance/transaction-params";
 import type { TransactionFilters } from "@/lib/finance/transaction-types";
 import { cn } from "@/lib/utils";
+import { ExportMenu } from "./export-menu";
 import { DATE_PRESET_LABELS, detectPreset, presetRange, type DatePreset } from "./filter-presets";
 
 const ALL = "all";
@@ -62,6 +63,7 @@ export function FiltersBar({ filters, onChange, onClear, scopedToAccount }: Prop
             <Sparkles />
           </Button>
         )}
+        <ExportMenu filters={filters} />
         <Button
           variant="outline"
           className="relative h-11 shrink-0 gap-2 md:hidden"

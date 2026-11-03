@@ -36,7 +36,7 @@ Handlers are thin: logic and zod validation are in `src/lib/...`; read the match
 | GET | `/api/dashboard` | Everything the home page shows, for the current month or `?month=YYYY-MM`. |
 | GET | `/api/dashboard/upcoming` | The dashboard's "Upcoming" card: next recurring charges and the monthly total. |
 | GET | `/api/export/backup` | A SQLite backup of everything, as a download. |
-| GET | `/api/export/transactions` | Every transaction as a download. `?format=csv` (default), `txt` (aligned columns), `tsv` or `json`; 400 on anything else. |
+| GET | `/api/export/transactions` | Every transaction as a download. `?format=csv` (default), `txt` (aligned columns), `tsv` or `json`; 400 on anything else. Takes the same filters as `GET /api/transactions` (account, q, from, to, category, tag, min, max, type, status, merchant); none = everything. |
 | GET | `/api/forecast` | A 30-day cash-flow projection from recurring bills and income. |
 | GET | `/api/goals` | Every goal with progress, needed-per-month and projected finish date. |
 | POST | `/api/goals` | `{ name, accountId, targetCents, startCents?, targetDate? }` |

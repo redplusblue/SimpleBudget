@@ -186,4 +186,11 @@ describe("other transaction export formats", () => {
     expect(out[0]).toMatchObject({ Date: "2026-10-05", Amount: "200.00", Account: "Everyday" });
     expect(Object.keys(out[0])).toEqual(EXPORT_HEADER);
   });
+
+  it("honours filters (the transactions view exports what it shows)", () => {
+    const db = seeded();
+    const out = JSON.parse(exportTransactionsJson(db, TZ, { from: "2026-10-03" }));
+    expect(out.map((r: { Payee: string }) => r.Payee)).toEqual(["PAYCHECK"]);
+    expect(parseCsv(exportTransactionsCsv(db, TZ, { type: "income", q: "nomatch" }))).toEqual([EXPORT_HEADER]);
+  });
 });

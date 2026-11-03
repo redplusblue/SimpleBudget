@@ -1,9 +1,10 @@
 import { addDays, endOfMonth, format, startOfMonth, startOfYear, subMonths } from "date-fns";
 
-export type DatePreset = "all" | "this-month" | "last-month" | "30d" | "90d" | "ytd" | "custom";
+export type DatePreset = "all" | "7d" | "this-month" | "last-month" | "30d" | "90d" | "ytd" | "custom";
 
 export const DATE_PRESET_LABELS: Record<Exclude<DatePreset, "custom">, string> = {
   all: "All time",
+  "7d": "Last 7 days",
   "this-month": "This month",
   "last-month": "Last month",
   "30d": "Last 30 days",
@@ -27,6 +28,8 @@ export function presetRange(
       const prev = subMonths(now, 1);
       return { from: ymd(startOfMonth(prev)), to: ymd(endOfMonth(prev)) };
     }
+    case "7d":
+      return { from: ymd(addDays(now, -6)) };
     case "30d":
       return { from: ymd(addDays(now, -29)) };
     case "90d":

@@ -1,9 +1,11 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { DbLike } from "@/db/open";
 import { accounts, categories, tags, transactionSplits, transactionTags, transactions } from "@/db/schema";
 import { centsToDecimalString } from "@/lib/finance/cents";
 import { localDateString } from "@/lib/finance/dates";
 import { effectiveDateSql } from "@/lib/finance/sql";
+import type { TransactionFilters } from "@/lib/finance/transaction-types";
+import { buildConditions } from "@/lib/finance/transactions-query";
 import { toCsv } from "./csv";
 
 export const EXPORT_HEADER = [
@@ -28,7 +30,7 @@ export type ExportFormat = "csv" | "tsv" | "txt" | "json";
 export const EXPORT_FORMATS: ExportFormat[] = ["csv", "tsv", "txt", "json"];
 
 /** Every transaction as export cells (header excluded), newest first. Amounts are plain decimals (negative = money out). */
-function exportRows(db: DbLike, timeZone: string): string[][] {
+function exportRows(db: DbLike, timeZone: string, filters: TransactionFilters = {}): string[][] {
   const cats = new Map(
     db
       .select({ id: categories.id, name: categories.name })
@@ -75,6 +77,7 @@ function exportRows(db: DbLike, timeZone: string): string[][] {
     })
     .from(transactions)
     .innerJoin(accounts, eq(accounts.id, transactions.accountId))
+    .where(and(...buildConditions(filters, timeZone)))
     .orderBy(effectiveDateSql, transactions.id)
     .all()
     .reverse();
@@ -99,22 +102,25 @@ function exportRows(db: DbLike, timeZone: string): string[][] {
 }
 
 /** Every transaction as CSV, newest first. */
-export function exportTransactionsCsv(db: DbLike, timeZone: string): string {
-  return toCsv(EXPORT_HEADER, exportRows(db, timeZone));
+export function exportTransactionsCsv(db: DbLike, timeZone: string, filters?: TransactionFilters): string {
+  return toCsv(EXPORT_HEADER, exportRows(db, timeZone, filters));
 }
 
 const clean = (v: string) => v.replace(/[\t\r\n]+/g, " ").trim();
 
 /** Tab-separated: one line per transaction, tabs/newlines inside cells flattened to spaces. */
-export function exportTransactionsTsv(db: DbLike, timeZone: string): string {
-  return [EXPORT_HEADER, ...exportRows(db, timeZone)].map((r) => r.map(clean).join("\t")).join("\n") + "\n";
+export function exportTransactionsTsv(db: DbLike, timeZone: string, filters?: TransactionFilters): string {
+  return [EXPORT_HEADER, ...exportRows(db, timeZone, filters)].map((r) => r.map(clean).join("\t")).join("\n") + "\n";
 }
 
 /** Plain text: aligned columns, one transaction per line, the fields you read at a glance (the CSV has the rest). */
-export function exportTransactionsTxt(db: DbLike, timeZone: string): string {
+export function exportTransactionsTxt(db: DbLike, timeZone: string, filters?: TransactionFilters): string {
   // Date, Account, Payee, Amount, Category, Notes
   const pick = (r: string[]) => [r[0], r[1], r[2], r[4], r[5] || (r[6] ? "Split" : ""), r[8]].map(clean);
-  const lines = [["Date", "Account", "Payee", "Amount", "Category", "Notes"], ...exportRows(db, timeZone).map(pick)];
+  const lines = [
+    ["Date", "Account", "Payee", "Amount", "Category", "Notes"],
+    ...exportRows(db, timeZone, filters).map(pick),
+  ];
   const widths = [0, 1, 2, 3, 4].map((i) => Math.min(40, Math.max(...lines.map((l) => l[i].length))));
   const fit = (v: string, w: number) => (v.length > w ? `${v.slice(0, w - 1)}…` : v);
   return (
@@ -132,14 +138,14 @@ export function exportTransactionsTxt(db: DbLike, timeZone: string): string {
 }
 
 /** JSON array of objects keyed by the CSV header names. */
-export function exportTransactionsJson(db: DbLike, timeZone: string): string {
-  const out = exportRows(db, timeZone).map((r) => Object.fromEntries(EXPORT_HEADER.map((h, i) => [h, r[i]])));
+export function exportTransactionsJson(db: DbLike, timeZone: string, filters?: TransactionFilters): string {
+  const out = exportRows(db, timeZone, filters).map((r) => Object.fromEntries(EXPORT_HEADER.map((h, i) => [h, r[i]])));
   return JSON.stringify(out, null, 2) + "\n";
 }
 
 export const EXPORT_TYPES: Record<
   ExportFormat,
-  { mime: string; build: (db: DbLike, tz: string) => string; bom: boolean }
+  { mime: string; build: (db: DbLike, tz: string, filters?: TransactionFilters) => string; bom: boolean }
 > = {
   csv: { mime: "text/csv", build: exportTransactionsCsv, bom: true },
   tsv: { mime: "text/tab-separated-values", build: exportTransactionsTsv, bom: true },
